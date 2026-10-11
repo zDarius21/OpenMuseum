@@ -1,0 +1,103 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1a1f;
+  /* Niente selezione del testo o menu contestuale con la pressione prolungata su touch. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+#app canvas {
+  display: block;
+  /* Il trascinamento serve a guardarsi intorno: niente scroll o zoom del browser. */
+  touch-action: none;
+}
+
+/* Suggerimento con i comandi */
+
+.hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(90vw, 26rem);
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
+  background: rgb(20 18 16 / 0.72);
+  backdrop-filter: blur(6px);
+  color: #f3efe8;
+  text-align: center;
+  line-height: 1.5;
+  font-size: 0.9rem;
+  /* I clic passano al canvas: cliccare sul suggerimento blocca comunque il puntatore. */
+  pointer-events: none;
+}
+
+.hint p {
+  margin: 0.35rem 0;
+}
+
+.hint__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.hint kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  margin: 0 0.1em;
+  padding: 0.05em 0.4em;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.85em;
+}
+
+/* Joystick virtuale */
+
+.joystick {
+  position: absolute;
+  left: calc(1.5rem + env(safe-area-inset-left));
+  bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  width: 120px;
+  height: 120px;
+  border: 2px solid rgb(255 255 255 / 0.4);
+  border-radius: 50%;
+  background: rgb(20 18 16 / 0.25);
+  touch-action: none;
+}
+
+.joystick__knob {
+  position: absolute;
+  inset: 0;
+  width: 52px;
+  height: 52px;
+  margin: auto;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.75);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+  pointer-events: none;
+}

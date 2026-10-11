@@ -1,0 +1,22 @@
+{
+  "name": "open-museum",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Museo virtuale 3D con visite guidate interattive e zoom narrato sui dettagli delle opere",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && gh-pages -d dist --nojekyll"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "gh-pages": "^6.3.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.4"
+  }
+}
