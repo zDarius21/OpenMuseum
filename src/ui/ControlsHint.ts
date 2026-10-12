@@ -15,14 +15,16 @@ export function createControlsHint(parent: HTMLElement, controls: PlayerControls
     if (controls.isTouchMode) {
       hint.innerHTML = `
         <p class="hint__title">Benvenuto nel museo</p>
-        <p>Usa il joystick per muoverti e trascina sullo schermo per guardarti intorno</p>`;
-      hint.hidden = touched;
+        <p>Usa il joystick per muoverti e trascina sullo schermo per guardarti intorno</p>
+        <p>Avvicinati a un quadro con <strong>▶ Visita guidata</strong> e toccalo per ascoltarne la spiegazione</p>`;
+      hint.hidden = touched || !controls.enabled;
     } else {
       hint.innerHTML = `
         <p class="hint__title">Clicca per esplorare</p>
         <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> o frecce per muoverti · mouse per guardarti intorno</p>
-        <p><kbd>Esc</kbd> per liberare il mouse</p>`;
-      hint.hidden = controls.isLocked;
+        <p><kbd>Esc</kbd> per liberare il mouse</p>
+        <p>Avvicinati a un quadro con <strong>▶ Visita guidata</strong> e cliccalo per ascoltarne la spiegazione</p>`;
+      hint.hidden = controls.isLocked || !controls.enabled;
     }
   };
 

@@ -17,6 +17,7 @@ const PADDING = 40;
 const BACKGROUND = '#2b2724';
 const TEXT_COLOR = '#f4efe6';
 const MUTED_COLOR = '#b8ad9f';
+const ACCENT_COLOR = '#e0bd6e';
 const SERIF = "Georgia, 'Times New Roman', serif";
 const SANS = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
 
@@ -41,7 +42,7 @@ export function createLabel(artwork: Artwork, maxAnisotropy: number): THREE.Mesh
     front,
     edgeMaterial,
   ]);
-  label.name = `label:${artwork.id}`;
+  label.name = 'label';
   return label;
 }
 
@@ -67,18 +68,22 @@ function drawLabel(artwork: Artwork): HTMLCanvasElement {
     titleLines = wrap(ctx, artwork.title, `italic ${titleSize}px ${SERIF}`, maxWidth);
   }
 
-  const lines: { text: string; font: string; color: string; height: number; spaceBefore: number }[] = [];
-  if (author) lines.push({ text: author, font: `600 50px ${SANS}`, color: TEXT_COLOR, height: 58, spaceBefore: 0 });
+  // Ogni riga può avere tratti di colore diverso (l'anno e l'indicazione della visita guidata).
+  type Segment = { text: string; color: string };
+  const lines: { segments: Segment[]; font: string; height: number; spaceBefore: number }[] = [];
+  if (author) lines.push({ segments: [{ text: author, color: TEXT_COLOR }], font: `600 50px ${SANS}`, height: 58, spaceBefore: 0 });
   titleLines.forEach((text, index) =>
     lines.push({
-      text,
+      segments: [{ text, color: TEXT_COLOR }],
       font: `italic ${titleSize}px ${SERIF}`,
-      color: TEXT_COLOR,
       height: titleSize * 1.15,
       spaceBefore: index === 0 && author ? 14 : 0,
     }),
   );
-  if (year) lines.push({ text: year, font: `42px ${SANS}`, color: MUTED_COLOR, height: 48, spaceBefore: 14 });
+  const footer: Segment[] = [];
+  if (year) footer.push({ text: year, color: MUTED_COLOR });
+  if (artwork.tour?.length) footer.push({ text: `${year ? '  ·  ' : ''}▶ Visita guidata`, color: ACCENT_COLOR });
+  if (footer.length) lines.push({ segments: footer, font: `42px ${SANS}`, height: 48, spaceBefore: 14 });
 
   // Blocco di testo centrato in verticale, allineato a sinistra.
   const blockHeight = lines.reduce((sum, line) => sum + line.spaceBefore + line.height, 0);
@@ -87,8 +92,12 @@ function drawLabel(artwork: Artwork): HTMLCanvasElement {
   for (const line of lines) {
     y += line.spaceBefore;
     ctx.font = line.font;
-    ctx.fillStyle = line.color;
-    ctx.fillText(line.text, PADDING, y, maxWidth);
+    let x = PADDING;
+    for (const segment of line.segments) {
+      ctx.fillStyle = segment.color;
+      ctx.fillText(segment.text, x, y, maxWidth - (x - PADDING));
+      x += ctx.measureText(segment.text).width;
+    }
     y += line.height;
   }
   return canvas;

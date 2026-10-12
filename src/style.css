@@ -101,3 +101,170 @@ body {
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
   pointer-events: none;
 }
+
+/* Mirino (puntatore bloccato) */
+
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.85);
+  box-shadow: 0 0 0 1.5px rgb(0 0 0 / 0.45);
+  pointer-events: none;
+  transition: transform 0.15s ease;
+}
+
+.crosshair--active {
+  background: #e0bd6e;
+  transform: scale(1.6);
+}
+
+.aim-label {
+  position: absolute;
+  top: calc(50% + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: rgb(20 18 16 / 0.72);
+  color: #f3efe8;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Messaggio temporaneo */
+
+.toast {
+  position: absolute;
+  top: calc(1rem + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 2rem);
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  background: rgb(20 18 16 / 0.82);
+  color: #f3efe8;
+  font-size: 0.9rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Visita guidata */
+
+.tour {
+  position: absolute;
+  left: 50%;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(46rem, calc(100% - 2rem));
+  padding: 1rem 1.25rem 1.1rem;
+  border-radius: 14px;
+  background: rgb(20 18 16 / 0.82);
+  backdrop-filter: blur(8px);
+  color: #f3efe8;
+  /* Il testo dei sottotitoli si può selezionare e copiare. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.tour__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tour__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.6rem;
+  min-width: 0;
+}
+
+.tour__title {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.15rem;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.tour__author,
+.tour__counter {
+  color: #b8ad9f;
+  font-size: 0.85rem;
+}
+
+.tour__counter {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.tour__subtitle {
+  margin: 0.6rem 0 0.9rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.tour__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tour__button {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.95rem;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.tour__button:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.18);
+}
+
+.tour__button:focus-visible {
+  outline: 2px solid #e0bd6e;
+  outline-offset: 2px;
+}
+
+.tour__button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tour__button--exit {
+  margin-left: auto;
+}
+
+@media (max-width: 480px) {
+  .tour {
+    width: calc(100% - 1rem);
+    bottom: calc(0.5rem + env(safe-area-inset-bottom));
+    padding: 0.8rem 0.9rem 0.9rem;
+  }
+
+  .tour__subtitle {
+    font-size: 0.95rem;
+  }
+
+  .tour__button {
+    flex: 1 1 auto;
+    padding: 0.4rem 0.6rem;
+  }
+
+  .tour__button--exit {
+    margin-left: 0;
+  }
+}

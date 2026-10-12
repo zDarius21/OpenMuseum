@@ -35,6 +35,18 @@ export const settings = {
     /** Quanta luce porta il faretto di ogni quadro: la potenza si adatta da sola alla distanza. */
     spotStrength: 6,
   },
+  tour: {
+    /** Durata in secondi dell'avvicinamento al quadro e del ritorno al proprio posto. */
+    approachDuration: 1.6,
+    /** Durata in secondi dello spostamento da una tappa all'altra. */
+    stepDuration: 1.4,
+    /** Pausa in secondi tra la fine della lettura di una tappa e la successiva. */
+    pauseBetweenStops: 1,
+    /** Velocità della voce narrante: 1 normale, meno di 1 più lenta. */
+    voiceRate: 1,
+    /** Distanza massima dal cordone, in metri, per poter avviare la visita guidata di un quadro. */
+    maxDistanceFromRope: 1.2,
+  },
   camera: {
     /** Campo visivo verticale, in gradi. */
     fov: 70,

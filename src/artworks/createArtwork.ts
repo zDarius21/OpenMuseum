@@ -19,7 +19,7 @@ const FRAME_DEPTH = 0.05;
 /** Quanto la cornice copre i bordi della tela. */
 const REBATE = 0.01;
 /** Distanza della tela dal muro, rientrata rispetto al fronte della cornice. */
-const CANVAS_OFFSET = 0.02;
+export const CANVAS_OFFSET = 0.02;
 
 /** Inclinazione del faretto dalla verticale: a 30° la luce non riflette verso chi guarda. */
 const SPOT_TILT = THREE.MathUtils.degToRad(30);
@@ -66,11 +66,14 @@ export function createArtwork(
     new THREE.PlaneGeometry(artwork.width, artwork.height),
     new THREE.MeshStandardMaterial({ map: texture, roughness: 0.85 }),
   );
+  canvas.name = 'canvas';
   canvas.position.z = CANVAS_OFFSET;
   group.add(canvas);
 
   const frameWidth = frameWidthFor(artwork);
-  group.add(new THREE.Mesh(createFrameGeometry(artwork.width, artwork.height, frameWidth), context.frameMaterial));
+  const frame = new THREE.Mesh(createFrameGeometry(artwork.width, artwork.height, frameWidth), context.frameMaterial);
+  frame.name = 'frame';
+  group.add(frame);
 
   // Targhetta a destra della cornice, alla stessa altezza da terra per tutte le opere.
   const label = createLabel(artwork, context.maxAnisotropy);

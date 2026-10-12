@@ -1,15 +1,16 @@
 # OpenMuseum – 3D Virtual Museum
 
-A 3D virtual museum you can walk through in the browser, on desktop and mobile. Explore a gallery of Caravaggio's paintings in first person, each shown at its real size with a gilded frame, a dedicated spotlight and a wall label. Guided tours with narrated zoom into the details of each painting are in development.
+A 3D virtual museum you can walk through in the browser, on desktop and mobile. Explore a gallery of Caravaggio's paintings in first person, each shown at its real size with a gilded frame, a dedicated spotlight and a wall label. Walk up to the rope in front of a painting and click it to start a guided tour: the camera glides in and zooms on its details while a narrator reads the explanation aloud (currently available for *The Calling of Saint Matthew*).
 
 ## Features
 
+- **Guided tours:** clicking or tapping a painting while standing near its rope starts a step-by-step tour (from farther away, a hint asks you to come closer). For each step the camera animates to a detail defined in the JSON, the detail is highlighted, and a subtitle is shown and read aloud with the Web Speech API. The tour advances on its own and can be paused, stepped back and forth, or closed (keyboard: arrows, `Space`, `Esc`).
 - **First-person exploration** with keyboard and mouse on desktop, and a virtual joystick plus drag-to-look on touch screens.
 - **Collisions** with walls and velvet-rope barriers that keep visitors at a realistic distance from the paintings.
 - **Data-driven artworks:** paintings are loaded from a JSON file, so adding one requires no code changes. Frame, spotlight and label are generated automatically from the data.
 - **Robust content loading:** invalid entries are skipped with a clear console warning, and a placeholder image is used if a picture fails to load.
 - **Procedural assets:** the parquet floor and placeholder images are drawn in code, keeping downloads small.
-- **Configurable:** room size, lighting, barriers, movement speed and field of view live in a single settings file.
+- **Configurable:** room size, lighting, barriers, movement speed, field of view and tour timing live in a single settings file.
 
 The in-app interface (labels, hints, console messages) is in Italian.
 
@@ -19,6 +20,8 @@ The in-app interface (labels, hints, console messages) is in Italian.
 | ---------------- | --------------------------------------------- |
 | 3D graphics      | [Three.js](https://threejs.org)               |
 | Build & language | [Vite](https://vite.dev) + TypeScript         |
+| Camera animation | [GSAP](https://gsap.com)                      |
+| Narration        | Web Speech API (built into the browser)       |
 | Content          | JSON file + public domain images              |
 | Hosting          | GitHub Pages or Vercel                        |
 
@@ -43,10 +46,12 @@ To try it on a phone connected to the same Wi-Fi network, run `npm run dev -- --
 | Move          | `W` `A` `S` `D` or arrow keys | Joystick in the bottom-left corner |
 | Look around   | Mouse                        | Drag a finger on the screen    |
 | Release mouse | `Esc`                        | —                              |
+| Guided tour   | Stand near the rope of a painting marked "▶ Visita guidata" on its label, then click it | Stand near the rope, then tap the painting |
+| During a tour | Buttons, or `←` `→` to change step, `Space` to pause, `Esc` to exit | Buttons |
 
 ## Settings
 
-Room size, barriers, lighting, movement speed and field of view can be changed in [`src/data/settings.ts`](src/data/settings.ts) without touching the rest of the code.
+Room size, barriers, lighting, movement speed, field of view and guided tour timing can be changed in [`src/data/settings.ts`](src/data/settings.ts) without touching the rest of the code.
 
 ## Adding a painting
 
@@ -78,7 +83,27 @@ Artworks are listed in [`public/data/artworks.json`](public/data/artworks.json).
 | `image`        | no       | Image inside `public/`; if missing or not loadable, a placeholder is used     |
 | `author`, `year`, `location`, `source` | no | Author, year, museum that holds the work, and the page the image comes from |
 
-Frame, spotlight and label (author, title and year, to the right of the painting) are created automatically. If an entry has an error (a missing field, a painting that doesn't fit on its wall or overlaps another one), it is skipped and the browser console explains why.
+### Guided tour
+
+Add a `tour` list to an artwork to give it a guided tour. Each step zooms on a detail:
+
+```json
+"tour": [
+  { "x": 0.5, "y": 0.5, "zoom": 1, "text": "Overview of the painting…" },
+  { "x": 0.76, "y": 0.41, "zoom": 2.4, "radius": 0.15, "text": "Christ's hand recalls Adam's in Michelangelo's Creation…" }
+]
+```
+
+| Field    | Required | Meaning                                                                                 |
+| -------- | -------- | --------------------------------------------------------------------------------------- |
+| `x`, `y` | yes      | Center of the detail on the image, from 0 to 1 starting at the top-left corner         |
+| `zoom`   | yes      | `1` shows the whole painting, `2` is twice as close, and so on                          |
+| `text`   | yes      | Subtitle, also read aloud                                                               |
+| `radius` | no       | Radius of the highlighted area, as a fraction of the painting's longer side; by default it follows the zoom. Steps at zoom 1 are highlighted only if a radius is given |
+
+Timing of the camera moves, the pause between steps, the voice speed and how close to the rope the visitor must be (`maxDistanceFromRope`) are in the `tour` section of the settings file.
+
+Frame, spotlight and label (author, title and year, to the right of the painting) are created automatically. If an entry has an error (a missing field, a painting that doesn't fit on its wall or overlaps another one), it is skipped and the browser console explains why. Invalid tour steps are skipped the same way, without affecting the rest of the tour.
 
 ## Scripts
 
@@ -97,8 +122,9 @@ src/
 ├─ style.css      Global styles
 ├─ scene/         Renderer, camera, render loop, room, lights and barriers
 ├─ controls/      First-person movement: keyboard, mouse, touch joystick, collisions
-├─ artworks/      Artwork loading and validation, frames, spotlights and labels
-├─ ui/            On-screen interface
+├─ artworks/      Artwork loading and validation, frames, spotlights, labels and click picking
+├─ tour/          Guided tour: camera animation, detail highlight, narration
+├─ ui/            On-screen interface: controls hint, crosshair, tour panel
 ├─ data/          Museum settings
 └─ utils/         Helper functions
 public/

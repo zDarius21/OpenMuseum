@@ -11,6 +11,7 @@
     "deploy": "npm run build && gh-pages -d dist --nojekyll"
   },
   "dependencies": {
+    "gsap": "^3.15.0",
     "three": "^0.186.1"
   },
   "devDependencies": {

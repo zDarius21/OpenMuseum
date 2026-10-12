@@ -50,7 +50,46 @@
     "wall": "nord",
     "position": 0,
     "centerHeight": 2.15,
-    "source": "https://commons.wikimedia.org/wiki/File:Caravaggio_%E2%80%94_The_Calling_of_Saint_Matthew.jpg"
+    "source": "https://commons.wikimedia.org/wiki/File:Caravaggio_%E2%80%94_The_Calling_of_Saint_Matthew.jpg",
+    "tour": [
+      {
+        "x": 0.5,
+        "y": 0.5,
+        "zoom": 1,
+        "text": "La Vocazione di san Matteo fu dipinta da Caravaggio tra il 1599 e il 1600 per la cappella Contarelli, nella chiesa di San Luigi dei Francesi a Roma. Racconta il momento in cui Cristo chiama l'esattore delle tasse Matteo a diventare suo discepolo."
+      },
+      {
+        "x": 0.78,
+        "y": 0.34,
+        "zoom": 2,
+        "text": "La vera protagonista è la luce. Non entra dalla finestra al centro, ma da una fonte invisibile in alto a destra, alle spalle di Cristo. Il fascio diagonale accompagna il suo gesto e illumina i volti dei presenti, come la grazia che entra in una stanza buia."
+      },
+      {
+        "x": 0.76,
+        "y": 0.41,
+        "zoom": 2.4,
+        "radius": 0.15,
+        "text": "Sulla destra entra Cristo, quasi nascosto dalla figura di san Pietro. Il suo braccio teso indica Matteo: è un gesto che ricorda la mano di Adamo nella Creazione di Michelangelo, sulla volta della Cappella Sistina."
+      },
+      {
+        "x": 0.32,
+        "y": 0.5,
+        "zoom": 3,
+        "text": "Al tavolo, l'uomo con la barba porta la mano verso di sé, come a chiedere: «Proprio io?». La tradizione lo identifica con Matteo, ma alcuni studiosi pensano che stia indicando il giovane seduto accanto a lui."
+      },
+      {
+        "x": 0.245,
+        "y": 0.58,
+        "zoom": 3,
+        "text": "Il giovane a capotavola, chino sul tavolo, continua a contare le monete senza alzare lo sguardo. Le monete ricordano il mestiere di Matteo, esattore delle tasse: secondo alcuni studiosi è proprio questo giovane il Matteo del quadro."
+      },
+      {
+        "x": 0.5,
+        "y": 0.5,
+        "zoom": 1,
+        "text": "Caravaggio ambienta un episodio del Vangelo in una stanza qualunque della Roma del suo tempo, con abiti e personaggi contemporanei. È questo realismo, insieme al forte contrasto tra luce e ombra, a rendere il quadro così rivoluzionario."
+      }
+    ]
   },
   {
     "id": "giuditta-e-oloferne",
