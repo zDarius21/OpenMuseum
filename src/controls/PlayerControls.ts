@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { pointerFromEvent } from '../artworks/pickArtwork';
 import { resolveCollisions } from './collisions';
 import { Joystick } from './Joystick';
 
@@ -182,7 +183,7 @@ export class PlayerControls {
     if (event.pointerType === 'mouse') {
       // Con il puntatore bloccato si mira con il centro dello schermo, altrimenti con il cursore.
       if (this.isLocked) this.onTap?.(SCREEN_CENTER);
-      else if (!this.onTap?.(this.toPointer(event))) this.lock();
+      else if (!this.onTap?.(pointerFromEvent(event, this.domElement))) this.lock();
     } else if (this.look === null) {
       const { pointerId, clientX: x, clientY: y } = event;
       this.look = { pointerId, x, y, startX: x, startY: y, startTime: performance.now() };
@@ -208,14 +209,9 @@ export class PlayerControls {
     const { startX, startY, startTime } = this.look;
     this.look = null;
     const isTap = Math.hypot(event.clientX - startX, event.clientY - startY) < TAP_MAX_DISTANCE && performance.now() - startTime < TAP_MAX_DURATION;
-    if (isTap && event.type === 'pointerup') this.onTap?.(this.toPointer(event));
+    if (isTap && event.type === 'pointerup') this.onTap?.(pointerFromEvent(event, this.domElement));
   };
 
-  /** Converte la posizione dell'evento in coordinate normalizzate della scena (da -1 a 1, y verso l'alto). */
-  private toPointer(event: PointerEvent): THREE.Vector2 {
-    const rect = this.domElement.getBoundingClientRect();
-    return new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
-  }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     this.keys.add(event.code);

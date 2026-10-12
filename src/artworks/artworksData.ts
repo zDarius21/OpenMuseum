@@ -21,6 +21,8 @@ export interface Artwork {
   year?: string | number;
   /** Museo o luogo in cui è conservata l'opera. */
   location?: string;
+  /** Breve presentazione dell'opera, mostrata nella scheda. */
+  description?: string;
   /** Indirizzo dell'immagine. Se manca si usa un'immagine simbolica. */
   image?: string;
   /** Dimensioni reali della tela in metri, cornice esclusa. */
@@ -79,7 +81,7 @@ function queryUrl({ projectId, dataset, apiVersion, maxImageSize }: ArtworkSourc
   // auto=format le converte in WebP o AVIF se il browser li supporta.
   const imageParams = `?fit=max&w=${maxImageSize}&h=${maxImageSize}&auto=format`;
   const query = `*[_type == "artwork"] | order(wall, position) {
-    "id": slug.current, title, author, year, location,
+    "id": slug.current, title, author, year, location, description,
     "image": image.asset->url + "${imageParams}",
     width, height, wall, position, centerHeight, source,
     "tour": tour[] { x, y, zoom, radius, text }
@@ -110,7 +112,7 @@ function findProblem(entry: unknown, usedIds: ReadonlySet<string>): string | nul
   if (typeof fields.position !== 'number') return '"position" deve essere un numero (metri dal centro della parete)';
   if (!isPositive(fields.width) || !isPositive(fields.height)) return '"width" e "height" devono essere numeri positivi (metri)';
   if (fields.centerHeight !== undefined && !isPositive(fields.centerHeight)) return '"centerHeight" deve essere un numero positivo (metri)';
-  for (const key of ['author', 'location', 'image', 'source']) {
+  for (const key of ['author', 'location', 'description', 'image', 'source']) {
     if (fields[key] !== undefined && typeof fields[key] !== 'string') return `"${key}" deve essere un testo`;
   }
   if (fields.year !== undefined && !isText(fields.year) && typeof fields.year !== 'number') return '"year" deve essere un testo o un numero';

@@ -11,6 +11,8 @@ export interface HangOptions {
   /** Altezza del centro dei quadri che non la indicano nel JSON. */
   defaultCenterHeight: number;
   spotStrength: number;
+  /** Chiamata a ogni immagine caricata, per mostrare l'avanzamento. */
+  onProgress?: (loaded: number, total: number) => void;
 }
 
 const FRAME_COLOR = 0xb08a3e;
@@ -41,7 +43,15 @@ export async function hangArtworks(artworks: readonly Artwork[], room: Room, opt
     return problem === null;
   });
 
-  const textures = await Promise.all(hangable.map((artwork) => loadTexture(artwork, options.maxAnisotropy)));
+  let loaded = 0;
+  options.onProgress?.(loaded, hangable.length);
+  const textures = await Promise.all(
+    hangable.map(async (artwork) => {
+      const texture = await loadTexture(artwork, options.maxAnisotropy);
+      options.onProgress?.(++loaded, hangable.length);
+      return texture;
+    }),
+  );
 
   const group = new THREE.Group();
   group.name = 'artworks';

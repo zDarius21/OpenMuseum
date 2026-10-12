@@ -1,11 +1,11 @@
-import gsap from 'gsap';
 import * as THREE from 'three';
 import type { Artwork, TourStop } from '../artworks/artworksData';
 import { CANVAS_OFFSET, frameWidthFor } from '../artworks/createArtwork';
 import { artworkOf, pickArtwork } from '../artworks/pickArtwork';
+import { isNearArtwork } from '../artworks/proximity';
 import type { PlayerControls } from '../controls/PlayerControls';
+import { tweenCamera } from '../scene/cameraTween';
 import type { Museum } from '../scene/Museum';
-import type { AimHint, AimTarget } from '../ui/AimHint';
 import type { Toast } from '../ui/Toast';
 import { TourPanel } from '../ui/TourPanel';
 import { Highlight } from './Highlight';
@@ -19,19 +19,16 @@ export interface TourOptions {
   /** Pausa in secondi tra la fine della lettura e la tappa successiva. */
   pauseBetweenStops: number;
   voiceRate: number;
-  /** Distanza massima dal cordone, in metri, per poter avviare la visita di un quadro. */
-  maxDistanceFromRope: number;
 }
 
 interface GuidedTourParts {
   museum: Museum;
   controls: PlayerControls;
-  aimHint: AimHint;
   toast: Toast;
   /** Elemento in cui inserire il pannello della visita. */
   parent: HTMLElement;
-  /** Distanza del cordone dalle pareti, in metri. */
-  ropeDistance: number;
+  /** Distanza massima dal muro, in metri, per avviare la visita di un quadro. */
+  reach: number;
   options: TourOptions;
 }
 
@@ -53,10 +50,7 @@ const FIT_MARGIN = 1.12;
 const MIN_DISTANCE = 0.2;
 /** Raggio predefinito dell'area evidenziata a zoom 1, in frazione del lato più lungo del quadro. */
 const DEFAULT_RADIUS = 0.3;
-/** Quanto ci si può spostare di lato oltre la cornice restando "davanti" al quadro. */
-const SIDE_MARGIN = 0.5;
 const UP = new THREE.Vector3(0, 1, 0);
-const SCREEN_CENTER = new THREE.Vector2(0, 0);
 
 /**
  * Visita guidata di un quadro: la camera si avvicina, poi per ogni tappa zooma su un dettaglio,
@@ -65,9 +59,8 @@ const SCREEN_CENTER = new THREE.Vector2(0, 0);
 export class GuidedTour {
   private readonly museum: Museum;
   private readonly controls: PlayerControls;
-  private readonly aimHint: AimHint;
   private readonly toast: Toast;
-  private readonly ropeDistance: number;
+  private readonly reach: number;
   private readonly options: TourOptions;
   private readonly panel: TourPanel;
   private readonly narrator = new Narrator('it-IT');
@@ -78,12 +71,11 @@ export class GuidedTour {
   private generation = 0;
   private cameraTween: gsap.core.Tween | null = null;
 
-  constructor({ museum, controls, aimHint, toast, parent, ropeDistance, options }: GuidedTourParts) {
+  constructor({ museum, controls, toast, parent, reach, options }: GuidedTourParts) {
     this.museum = museum;
     this.controls = controls;
-    this.aimHint = aimHint;
     this.toast = toast;
-    this.ropeDistance = ropeDistance;
+    this.reach = reach;
     this.options = options;
     this.narrator.rate = options.voiceRate;
     this.panel = new TourPanel(parent, {
@@ -95,7 +87,6 @@ export class GuidedTour {
     });
 
     document.addEventListener('keydown', this.onKeyDown);
-    museum.renderer.domElement.addEventListener('pointermove', this.onPointerMove);
     window.addEventListener('resize', this.onResize);
   }
 
@@ -115,7 +106,11 @@ export class GuidedTour {
   handleTap(pointer: THREE.Vector2): boolean {
     if (this.active) return false;
     const group = this.pickTourArtwork(pointer);
-    if (!group) return false;
+    return group ? this.requestStart(group) : false;
+  }
+
+  /** Avvia la visita del quadro se il visitatore è vicino al cordone, altrimenti lo invita ad avvicinarsi. */
+  requestStart(group: THREE.Object3D): boolean {
     if (!this.isNear(group)) {
       this.toast.show('Avvicinati al cordone davanti al quadro per la visita guidata');
       return false;
@@ -124,22 +119,9 @@ export class GuidedTour {
     return true;
   }
 
-  /** Da chiamare a ogni frame: aggiorna il mirino. */
-  update(): void {
-    const aiming = this.controls.isLocked && this.controls.enabled && !this.active;
-    let target: AimTarget = 'none';
-    const group = aiming ? this.pickTourArtwork(SCREEN_CENTER) : null;
-    if (group) target = this.isNear(group) ? 'tour-near' : 'tour-far';
-    this.aimHint.update(aiming, target);
-  }
-
-  /** True se il visitatore sta davanti al quadro, a non più di maxDistanceFromRope dal cordone. */
+  /** True se il visitatore sta davanti al quadro, abbastanza vicino al cordone. */
   isNear(group: THREE.Object3D): boolean {
-    const artwork = artworkOf(group);
-    // Nelle coordinate del quadro: x lungo la parete, z distanza dal muro verso la sala.
-    const visitor = group.worldToLocal(this.museum.camera.position.clone());
-    const halfWidth = artwork.width / 2 + frameWidthFor(artwork) + SIDE_MARGIN;
-    return visitor.z <= this.ropeDistance + this.options.maxDistanceFromRope && Math.abs(visitor.x) <= halfWidth;
+    return isNearArtwork(group, this.museum.camera.position, this.reach);
   }
 
   start(group: THREE.Object3D): void {
@@ -276,20 +258,7 @@ export class GuidedTour {
 
   private animateCamera(position: THREE.Vector3, quaternion: THREE.Quaternion, duration: number, onComplete: () => void): void {
     this.cameraTween?.kill();
-    const camera = this.museum.camera;
-    const fromPosition = camera.position.clone();
-    const fromQuaternion = camera.quaternion.clone();
-    const progress = { t: 0 };
-    this.cameraTween = gsap.to(progress, {
-      t: 1,
-      duration,
-      ease: 'power2.inOut',
-      onUpdate: () => {
-        camera.position.lerpVectors(fromPosition, position, progress.t);
-        camera.quaternion.slerpQuaternions(fromQuaternion, quaternion, progress.t);
-      },
-      onComplete,
-    });
+    this.cameraTween = tweenCamera(this.museum.camera, position, quaternion, duration, onComplete);
   }
 
   private refreshPanel(): void {
@@ -342,15 +311,6 @@ export class GuidedTour {
         return;
     }
     event.preventDefault();
-  };
-
-  /** Su PC, senza puntatore bloccato, il cursore diventa una mano sopra i quadri con visita guidata, se si è abbastanza vicini. */
-  private readonly onPointerMove = (event: PointerEvent): void => {
-    if (event.pointerType !== 'mouse' || this.controls.isLocked || !this.controls.enabled) return;
-    const rect = this.museum.renderer.domElement.getBoundingClientRect();
-    const pointer = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
-    const group = this.pickTourArtwork(pointer);
-    this.museum.renderer.domElement.style.cursor = group && this.isNear(group) ? 'pointer' : '';
   };
 
   /** Se la finestra cambia dimensione durante una tappa, la camera si riposiziona per inquadrarla di nuovo bene. */

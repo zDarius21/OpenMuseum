@@ -4,7 +4,12 @@ A 3D virtual museum you can walk through in the browser, on desktop and mobile. 
 
 ## Features
 
-- **Guided tours:** clicking or tapping a painting while standing near its rope starts a step-by-step tour (from farther away, a hint asks you to come closer). For each step the camera animates to a detail defined in the artwork's data, the detail is highlighted, and a subtitle is shown and read aloud with the Web Speech API. The tour advances on its own and can be paused, stepped back and forth, or closed (keyboard: arrows, `Space`, `Esc`).
+- **Welcome screen:** shows how to move, look around and start a tour, with instructions tailored to desktop or touch screens and a progress bar while the paintings load. The `?` button opens it again at any time.
+- **Artwork info card:** standing at the rope in front of a painting and looking at it opens a card with its author, title, date, size, location and a short description, plus a button to start its guided tour or, for paintings without one, the close-up view (`Enter` on desktop).
+- **Close-up view:** standing at the rope, clicking or tapping a painting without a guided tour fills the screen with it, centered, with its info card on top (the `i` button hides it). Zoom toward any point with the mouse wheel, a pinch or a double click, drag to explore the details, and press `Esc` or the close button to step back to where you were.
+- **Minimap:** a top-down map of the room shows where you are and which way you are looking, with the painting whose card is open highlighted.
+- **Guided tour markers:** paintings with a tour have a gold ▶ badge with a pulsing ring next to their label, and are marked in gold on the minimap.
+- **Guided tours:** clicking or tapping a painting while standing near its rope, or using the button in its info card, starts a step-by-step tour (from farther away, a hint asks you to come closer). For each step the camera animates to a detail defined in the artwork's data, the detail is highlighted, and a subtitle is shown and read aloud with the Web Speech API. The tour advances on its own and can be paused, stepped back and forth, or closed (keyboard: arrows, `Space`, `Esc`).
 - **First-person exploration** with keyboard and mouse on desktop, and a virtual joystick plus drag-to-look on touch screens.
 - **Collisions** with walls and velvet-rope barriers that keep visitors at a realistic distance from the paintings.
 - **Content managed in a headless CMS:** artworks, images and guided tours live in [Sanity](https://www.sanity.io) and are edited in Sanity Studio, a web form with validation. A published change shows up in the museum on the next page load, with no rebuild or redeploy. Frame, spotlight and label are generated automatically from the data.
@@ -78,6 +83,7 @@ Open <http://localhost:3333> and sign in with a Sanity account that has access t
 | Altezza del centro da terra | no | Height of the painting's center from the floor (default 1.55 m) |
 | Immagine              | no       | The painting; if missing or not loadable, a placeholder is used |
 | Autore, Anno, Dove è conservata, Fonte dell'immagine | no | Author, year, museum that holds the work, and the page the image comes from |
+| Descrizione           | no       | Two or three sentences about the work, shown in its info card |
 
 ### Guided tour
 

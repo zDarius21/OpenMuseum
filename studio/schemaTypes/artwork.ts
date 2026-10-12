@@ -81,6 +81,14 @@ export const artwork = defineType({
     defineField({ name: 'year', title: 'Anno', description: 'Per esempio "1599 circa" o "1594-1595".', type: 'string', fieldset: 'card' }),
     defineField({ name: 'location', title: 'Dove è conservata', type: 'string', fieldset: 'card' }),
     defineField({
+      name: 'description',
+      title: 'Descrizione',
+      description: "Due o tre frasi sull'opera, mostrate nella scheda che si apre guardando il quadro.",
+      type: 'text',
+      rows: 4,
+      fieldset: 'card',
+    }),
+    defineField({
       name: 'image',
       title: 'Immagine',
       description: "Se manca, il museo mostra un'immagine simbolica.",

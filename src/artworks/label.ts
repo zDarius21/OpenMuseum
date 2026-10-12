@@ -11,7 +11,7 @@ const LABEL_DEPTH = 0.008;
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 400;
-const LABEL_HEIGHT = (LABEL_WIDTH * CANVAS_HEIGHT) / CANVAS_WIDTH;
+export const LABEL_HEIGHT = (LABEL_WIDTH * CANVAS_HEIGHT) / CANVAS_WIDTH;
 const PADDING = 40;
 // Targhetta scura con testo chiaro: sulla parete avorio si legge anche da dietro le transenne.
 const BACKGROUND = '#2b2724';

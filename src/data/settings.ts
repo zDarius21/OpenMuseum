@@ -19,6 +19,8 @@ export const settings = {
     postHeight: 0.95,
     /** Quanto si abbassa il cordone a metà tra due paletti. */
     ropeSag: 0.1,
+    /** Distanza massima dal cordone, in metri, per aprire la scheda, la visita guidata o la vista ravvicinata di un quadro. */
+    maxDistanceFromRope: 1.2,
   },
   lights: {
     /** Luce diffusa che rende leggibili anche le zone lontane dai faretti. */
@@ -44,8 +46,13 @@ export const settings = {
     pauseBetweenStops: 1,
     /** Velocità della voce narrante: 1 normale, meno di 1 più lenta. */
     voiceRate: 1,
-    /** Distanza massima dal cordone, in metri, per poter avviare la visita guidata di un quadro. */
-    maxDistanceFromRope: 1.2,
+  },
+  /** Vista ravvicinata dei quadri senza visita guidata. */
+  viewer: {
+    /** Ingrandimento massimo: 1 = quadro intero. Sui quadri piccoli può essere minore, per non attraversare la tela. */
+    maxZoom: 6,
+    /** Durata in secondi dell'avvicinamento al quadro e del ritorno al proprio posto. */
+    approachDuration: 1,
   },
   camera: {
     /** Campo visivo verticale, in gradi. */

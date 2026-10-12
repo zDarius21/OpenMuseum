@@ -1,38 +1,20 @@
 import type { PlayerControls } from '../controls/PlayerControls';
 
 /**
- * Suggerimento con i comandi al centro dello schermo.
- * Su PC resta visibile finché il puntatore non è bloccato; su touch sparisce al primo tocco.
+ * Su PC, quando il puntatore non è bloccato (per esempio dopo Esc), ricorda come riprendere la visita.
+ * Le istruzioni complete sono nella schermata iniziale; su touch non serve, perché non c'è nulla da bloccare.
  */
 export function createControlsHint(parent: HTMLElement, controls: PlayerControls): void {
   const hint = document.createElement('div');
   hint.className = 'hint';
+  hint.innerHTML = `
+    <p class="hint__title">Clicca per continuare la visita</p>
+    <p>Il pulsante <span class="hint__key">?</span> in alto a destra riapre le istruzioni</p>`;
   parent.append(hint);
 
-  let touched = false;
-
   const update = (): void => {
-    if (controls.isTouchMode) {
-      hint.innerHTML = `
-        <p class="hint__title">Benvenuto nel museo</p>
-        <p>Usa il joystick per muoverti e trascina sullo schermo per guardarti intorno</p>
-        <p>Avvicinati a un quadro con <strong>▶ Visita guidata</strong> e toccalo per ascoltarne la spiegazione</p>`;
-      hint.hidden = touched || !controls.enabled;
-    } else {
-      hint.innerHTML = `
-        <p class="hint__title">Clicca per esplorare</p>
-        <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> o frecce per muoverti · mouse per guardarti intorno</p>
-        <p><kbd>Esc</kbd> per liberare il mouse</p>
-        <p>Avvicinati a un quadro con <strong>▶ Visita guidata</strong> e cliccalo per ascoltarne la spiegazione</p>`;
-      hint.hidden = controls.isLocked || !controls.enabled;
-    }
+    hint.hidden = controls.isTouchMode || controls.isLocked || !controls.enabled;
   };
-
-  window.addEventListener('pointerdown', (event) => {
-    if (event.pointerType === 'mouse' || touched) return;
-    touched = true;
-    update();
-  });
   controls.onStateChange(update);
   update();
 }

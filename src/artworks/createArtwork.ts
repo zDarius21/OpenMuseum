@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type { Wall } from '../scene/Room';
 import type { Artwork } from './artworksData';
-import { createLabel, LABEL_CENTER_HEIGHT, LABEL_GAP, LABEL_WIDTH } from './label';
+import { createLabel, LABEL_CENTER_HEIGHT, LABEL_GAP, LABEL_HEIGHT, LABEL_WIDTH } from './label';
+import { BADGE_RADIUS, createTourBadge } from './tourBadge';
 
 /** Elementi condivisi da tutti i quadri. */
 export interface ArtworkContext {
@@ -20,6 +21,8 @@ const FRAME_DEPTH = 0.05;
 const REBATE = 0.01;
 /** Distanza della tela dal muro, rientrata rispetto al fronte della cornice. */
 export const CANVAS_OFFSET = 0.02;
+/** Spazio tra la targhetta e il bollino della visita guidata. */
+const BADGE_GAP = 0.04;
 
 /** Inclinazione del faretto dalla verticale: a 30° la luce non riflette verso chi guarda. */
 const SPOT_TILT = THREE.MathUtils.degToRad(30);
@@ -79,6 +82,17 @@ export function createArtwork(
   const label = createLabel(artwork, context.maxAnisotropy);
   label.position.set(artwork.width / 2 + frameWidth + LABEL_GAP + LABEL_WIDTH / 2, LABEL_CENTER_HEIGHT - centerHeight, 0);
   group.add(label);
+
+  // Sopra la targhetta, allineato a sinistra, il bollino delle opere con visita guidata.
+  if (artwork.tour?.length) {
+    const badge = createTourBadge();
+    badge.position.set(
+      artwork.width / 2 + frameWidth + LABEL_GAP + BADGE_RADIUS,
+      LABEL_CENTER_HEIGHT + LABEL_HEIGHT / 2 + BADGE_GAP + BADGE_RADIUS - centerHeight,
+      0,
+    );
+    group.add(badge);
+  }
 
   addSpotlight(group, artwork, centerHeight, context);
   return group;
