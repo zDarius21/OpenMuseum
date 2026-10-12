@@ -1,0 +1,22 @@
+{
+  "name": "open-museum-studio",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Sanity Studio di OpenMuseum: il pannello in cui si gestiscono le opere del museo",
+  "type": "module",
+  "scripts": {
+    "dev": "sanity dev",
+    "build": "sanity build",
+    "deploy": "sanity deploy"
+  },
+  "dependencies": {
+    "@sanity/locale-it-it": "^1.1.36",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "sanity": "^6.18.0",
+    "styled-components": "^6.5.3"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2"
+  }
+}

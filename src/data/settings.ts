@@ -5,9 +5,9 @@
 export const settings = {
   room: {
     /** Larghezza, lungo l'asse X. */
-    width: 10,
+    width: 16,
     /** Profondità, lungo l'asse Z. */
-    depth: 16,
+    depth: 32,
     height: 4.5,
     wallThickness: 0.2,
   },
@@ -30,7 +30,7 @@ export const settings = {
     spotIntensity: 60,
   },
   artworks: {
-    /** Altezza da terra del centro dei quadri che non la indicano in artworks.json. */
+    /** Altezza da terra del centro dei quadri che non la indicano. */
     defaultCenterHeight: 1.55,
     /** Quanta luce porta il faretto di ogni quadro: la potenza si adatta da sola alla distanza. */
     spotStrength: 6,
@@ -69,5 +69,14 @@ export const settings = {
     /** Oltre 2 il costo cresce molto senza differenze visibili, soprattutto sui telefoni. */
     maxPixelRatio: 2,
     background: 0x1a1a1f,
+  },
+  /** Il progetto Sanity da cui arrivano le opere: si gestiscono con lo Studio nella cartella studio. */
+  sanity: {
+    projectId: 'e0nf18h9',
+    dataset: 'production',
+    /** Versione dell'API: una data fissa, così il formato delle risposte non cambia da solo. */
+    apiVersion: '2025-02-19',
+    /** Lato più lungo, in pixel, con cui si scaricano le immagini: Sanity riduce quelle più grandi. */
+    maxImageSize: 2048,
   },
 } as const;

@@ -29,13 +29,14 @@ museum.onUpdate((delta) => controls.update(delta));
 
 createControlsHint(container, controls);
 
-// Visita guidata: si apre con un clic (o un tocco) su un quadro che ha delle tappe in artworks.json,
+// Visita guidata: si apre con un clic (o un tocco) su un quadro che ha delle tappe,
 // stando vicino al cordone davanti al quadro.
+const toast = new Toast(container);
 const tour = new GuidedTour({
   museum,
   controls,
   aimHint: new AimHint(container),
-  toast: new Toast(container),
+  toast,
   parent: container,
   ropeDistance: settings.barriers.distance,
   options: settings.tour,
@@ -45,14 +46,17 @@ museum.onUpdate(() => tour.update());
 
 museum.start();
 
-// Le opere arrivano da un file JSON: si aggiungono alla scena appena caricate.
-loadArtworks(`${import.meta.env.BASE_URL}data/artworks.json`)
+// Le opere arrivano da Sanity: si aggiungono alla scena appena caricate.
+loadArtworks(settings.sanity)
   .then((artworks) => hangArtworks(artworks, room, { maxAnisotropy, reflections, ...settings.artworks }))
   .then((artworks) => {
     museum.scene.add(artworks);
     tour.setArtworks(artworks);
   })
-  .catch((error: unknown) => console.error('Impossibile caricare le opere:', error));
+  .catch((error: unknown) => {
+    console.error('Impossibile caricare le opere:', error);
+    toast.show('Impossibile caricare le opere: riprova più tardi', 8000);
+  });
 
 // In sviluppo `museum`, `controls` e `tour` sono raggiungibili dalla console del browser, per il debug.
 if (import.meta.env.DEV) Object.assign(window, { museum, controls, tour });

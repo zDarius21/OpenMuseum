@@ -13,7 +13,7 @@ export interface TourStop {
   text: string;
 }
 
-/** Un'opera come descritta in public/data/artworks.json. */
+/** Un'opera come arriva da Sanity. */
 export interface Artwork {
   id: string;
   title: string;
@@ -21,7 +21,7 @@ export interface Artwork {
   year?: string | number;
   /** Museo o luogo in cui è conservata l'opera. */
   location?: string;
-  /** Percorso dell'immagine, relativo alla cartella public. Se manca si usa un'immagine simbolica. */
+  /** Indirizzo dell'immagine. Se manca si usa un'immagine simbolica. */
   image?: string;
   /** Dimensioni reali della tela in metri, cornice esclusa. */
   width: number;
@@ -37,15 +37,24 @@ export interface Artwork {
   tour?: TourStop[];
 }
 
+/** Il progetto Sanity da cui leggere le opere. */
+export interface ArtworkSource {
+  projectId: string;
+  dataset: string;
+  apiVersion: string;
+  /** Lato più lungo, in pixel, delle immagini da scaricare. */
+  maxImageSize: number;
+}
+
 /**
- * Carica le opere dal file JSON. Le voci con errori vengono saltate con un avviso in console,
+ * Carica le opere pubblicate su Sanity. Le opere con errori vengono saltate con un avviso in console,
  * così un errore di battitura non blocca tutto il museo.
  */
-export async function loadArtworks(url: string): Promise<Artwork[]> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`${url}: risposta HTTP ${response.status}`);
-  const data: unknown = await response.json();
-  if (!Array.isArray(data)) throw new Error(`${url}: il file deve contenere una lista di opere`);
+export async function loadArtworks(source: ArtworkSource): Promise<Artwork[]> {
+  const response = await fetch(queryUrl(source));
+  if (!response.ok) throw new Error(`Sanity: risposta HTTP ${response.status}`);
+  const data = withoutNulls(((await response.json()) as { result?: unknown }).result);
+  if (!Array.isArray(data)) throw new Error('Sanity: la risposta non contiene una lista di opere');
 
   const artworks: Artwork[] = [];
   const ids = new Set<string>();
@@ -53,7 +62,7 @@ export async function loadArtworks(url: string): Promise<Artwork[]> {
     const problem = findProblem(entry, ids);
     if (problem) {
       const id = (entry as { id?: unknown } | null)?.id;
-      console.warn(`artworks.json, opera n. ${index + 1}${typeof id === 'string' ? ` ("${id}")` : ''} ignorata: ${problem}`);
+      console.warn(`Sanity, opera n. ${index + 1}${typeof id === 'string' ? ` ("${id}")` : ''} ignorata: ${problem}`);
       return;
     }
     const artwork = entry as Artwork;
@@ -62,6 +71,32 @@ export async function loadArtworks(url: string): Promise<Artwork[]> {
     artworks.push(artwork);
   });
   return artworks;
+}
+
+/** Interroga l'API di Sanity chiedendo le opere già nella forma di Artwork. */
+function queryUrl({ projectId, dataset, apiVersion, maxImageSize }: ArtworkSource): string {
+  // fit=max riduce solo le immagini più grandi di maxImageSize, senza mai ingrandirle;
+  // auto=format le converte in WebP o AVIF se il browser li supporta.
+  const imageParams = `?fit=max&w=${maxImageSize}&h=${maxImageSize}&auto=format`;
+  const query = `*[_type == "artwork"] | order(wall, position) {
+    "id": slug.current, title, author, year, location,
+    "image": image.asset->url + "${imageParams}",
+    width, height, wall, position, centerHeight, source,
+    "tour": tour[] { x, y, zoom, radius, text }
+  }`;
+  // apicdn risponde da una cache vicina al visitatore, che Sanity aggiorna quando si pubblica dallo Studio.
+  return `https://${projectId}.apicdn.sanity.io/v${apiVersion}/data/query/${dataset}?query=${encodeURIComponent(query)}`;
+}
+
+/** Sanity restituisce null per i campi lasciati vuoti: qui diventano campi assenti. */
+function withoutNulls(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutNulls);
+  if (typeof value !== 'object' || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, field]) => field !== null)
+      .map(([key, field]) => [key, withoutNulls(field)]),
+  );
 }
 
 function findProblem(entry: unknown, usedIds: ReadonlySet<string>): string | null {
@@ -86,12 +121,12 @@ function findProblem(entry: unknown, usedIds: ReadonlySet<string>): string | nul
 function validTourStops(artwork: Artwork): TourStop[] {
   const stops: unknown = artwork.tour;
   if (!Array.isArray(stops)) {
-    console.warn(`artworks.json, "${artwork.id}": "tour" deve essere una lista di tappe, visita ignorata`);
+    console.warn(`Sanity, "${artwork.id}": "tour" deve essere una lista di tappe, visita ignorata`);
     return [];
   }
   return stops.filter((stop: unknown, index): stop is TourStop => {
     const problem = findStopProblem(stop);
-    if (problem) console.warn(`artworks.json, "${artwork.id}", tappa n. ${index + 1} ignorata: ${problem}`);
+    if (problem) console.warn(`Sanity, "${artwork.id}", tappa n. ${index + 1} ignorata: ${problem}`);
     return problem === null;
   });
 }
