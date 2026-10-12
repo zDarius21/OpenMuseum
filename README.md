@@ -1,55 +1,64 @@
-# OpenMuseum – Museo virtuale 3D
+# OpenMuseum – 3D Virtual Museum
 
-Un museo virtuale 3D che si visita camminando nel browser: cliccando su un'opera parte una spiegazione guidata, con la camera che zooma sui dettagli mentre il testo viene letto ad alta voce.
+A 3D virtual museum you can walk through in the browser, on desktop and mobile. Explore a gallery of Caravaggio's paintings in first person, each shown at its real size with a gilded frame, a dedicated spotlight and a wall label. Guided tours with narrated zoom into the details of each painting are in development.
 
-## Tecnologie
+## Features
 
-| Componente          | Scelta                                 |
-| ------------------- | -------------------------------------- |
-| Grafica 3D          | [Three.js](https://threejs.org)        |
-| Build e linguaggio  | [Vite](https://vite.dev) + TypeScript  |
-| Animazioni camera   | GSAP *(dalla Fase 5)*                  |
-| Voce narrante       | Web Speech API *(dalla Fase 5)*        |
-| Contenuti           | File JSON + immagini di pubblico dominio |
-| Pubblicazione       | GitHub Pages o Vercel                  |
+- **First-person exploration** with keyboard and mouse on desktop, and a virtual joystick plus drag-to-look on touch screens.
+- **Collisions** with walls and velvet-rope barriers that keep visitors at a realistic distance from the paintings.
+- **Data-driven artworks:** paintings are loaded from a JSON file, so adding one requires no code changes. Frame, spotlight and label are generated automatically from the data.
+- **Robust content loading:** invalid entries are skipped with a clear console warning, and a placeholder image is used if a picture fails to load.
+- **Procedural assets:** the parquet floor and placeholder images are drawn in code, keeping downloads small.
+- **Configurable:** room size, lighting, barriers, movement speed and field of view live in a single settings file.
 
-## Avvio in locale
+The in-app interface (labels, hints, console messages) is in Italian.
 
-Requisiti: [Node.js](https://nodejs.org) 20.19+ oppure 22.12+.
+## Tech stack
+
+| Component        | Choice                                        |
+| ---------------- | --------------------------------------------- |
+| 3D graphics      | [Three.js](https://threejs.org)               |
+| Build & language | [Vite](https://vite.dev) + TypeScript         |
+| Content          | JSON file + public domain images              |
+| Hosting          | GitHub Pages or Vercel                        |
+
+## Getting started
+
+Requirements: [Node.js](https://nodejs.org) 20.19+ or 22.12+.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Poi apri <http://localhost:5173>.
+Then open <http://localhost:5173>.
 
-Per provarlo dal telefono sulla stessa rete Wi-Fi: `npm run dev -- --host`, e apri dal telefono l'indirizzo "Network" mostrato nel terminale.
+To try it on a phone connected to the same Wi-Fi network, run `npm run dev -- --host` and open the "Network" address shown in the terminal.
 
-## Comandi
+## Controls
 
-| Azione                | PC                                   | Smartphone / tablet               |
-| --------------------- | ------------------------------------ | --------------------------------- |
-| Iniziare              | Clic sulla scena                     | —                                 |
-| Muoversi              | `W` `A` `S` `D` o frecce             | Joystick in basso a sinistra      |
-| Guardarsi intorno     | Mouse                                | Trascinare il dito sullo schermo  |
-| Liberare il mouse     | `Esc`                                | —                                 |
+| Action        | Desktop                      | Phone / tablet                 |
+| ------------- | ---------------------------- | ------------------------------ |
+| Start         | Click the scene              | —                              |
+| Move          | `W` `A` `S` `D` or arrow keys | Joystick in the bottom-left corner |
+| Look around   | Mouse                        | Drag a finger on the screen    |
+| Release mouse | `Esc`                        | —                              |
 
-## Impostazioni
+## Settings
 
-Dimensioni della sala, transenne, luci, velocità di movimento e campo visivo si cambiano in [`src/data/settings.ts`](src/data/settings.ts), senza toccare il resto del codice.
+Room size, barriers, lighting, movement speed and field of view can be changed in [`src/data/settings.ts`](src/data/settings.ts) without touching the rest of the code.
 
-## Aggiungere un quadro
+## Adding a painting
 
-Le opere si trovano in [`public/data/artworks.json`](public/data/artworks.json): per aggiungerne una basta aggiungere una voce, senza toccare il codice.
+Artworks are listed in [`public/data/artworks.json`](public/data/artworks.json). To add one, add an entry; no code changes are needed.
 
 ```json
 {
-  "id": "coniugi-arnolfini",
-  "title": "Ritratto dei coniugi Arnolfini",
+  "id": "arnolfini-portrait",
+  "title": "The Arnolfini Portrait",
   "author": "Jan van Eyck",
   "year": 1434,
-  "image": "images/coniugi-arnolfini.jpg",
+  "image": "images/arnolfini-portrait.jpg",
   "width": 0.6,
   "height": 0.82,
   "wall": "nord",
@@ -58,83 +67,71 @@ Le opere si trovano in [`public/data/artworks.json`](public/data/artworks.json):
 }
 ```
 
-| Campo          | Obbligatorio | Significato                                                                 |
-| -------------- | ------------ | --------------------------------------------------------------------------- |
-| `id`           | sì           | Identificativo unico, senza spazi                                           |
-| `title`        | sì           | Titolo dell'opera                                                           |
-| `wall`         | sì           | Parete: `nord` (di fronte all'ingresso), `sud`, `est` (a destra), `ovest`    |
-| `position`     | sì           | Metri dal centro della parete, positivi verso destra guardando la parete    |
-| `width`, `height` | sì        | Misure reali della tela in metri, cornice esclusa                           |
-| `centerHeight` | no           | Altezza da terra del centro del quadro (predefinita 1,55 m)                 |
-| `image`        | no           | Immagine in `public/`; se manca o non si carica si usa un'immagine simbolica |
-| `author`, `year`, `location`, `source` | no | Autore, anno, museo che la conserva e pagina da cui proviene l'immagine |
+| Field          | Required | Meaning                                                                       |
+| -------------- | -------- | ----------------------------------------------------------------------------- |
+| `id`           | yes      | Unique identifier, no spaces                                                  |
+| `title`        | yes      | Title of the artwork                                                          |
+| `wall`         | yes      | Wall: `nord` (north, facing the entrance), `sud` (south), `est` (east, right), `ovest` (west, left) |
+| `position`     | yes      | Meters from the center of the wall, positive to the right when facing it      |
+| `width`, `height` | yes   | Real canvas size in meters, frame excluded                                    |
+| `centerHeight` | no       | Height of the painting's center from the floor (default 1.55 m)               |
+| `image`        | no       | Image inside `public/`; if missing or not loadable, a placeholder is used     |
+| `author`, `year`, `location`, `source` | no | Author, year, museum that holds the work, and the page the image comes from |
 
-Cornice, faretto e targhetta (autore, titolo e anno, a destra del quadro) si creano da soli in base ai dati. Se una voce ha un errore (campo mancante, quadro che esce dalla parete o si sovrappone a un altro) viene saltata, con un avviso nella console del browser che spiega il motivo.
+Frame, spotlight and label (author, title and year, to the right of the painting) are created automatically. If an entry has an error (a missing field, a painting that doesn't fit on its wall or overlaps another one), it is skipped and the browser console explains why.
 
-## Script
+## Scripts
 
-| Comando           | Cosa fa                                                       |
-| ----------------- | ------------------------------------------------------------- |
-| `npm run dev`     | Server di sviluppo con ricaricamento automatico               |
-| `npm run build`   | Controllo dei tipi TypeScript e build di produzione in `dist/` |
-| `npm run preview` | Serve in locale la build di produzione                        |
-| `npm run deploy`  | Build e pubblicazione su GitHub Pages (ramo `gh-pages`)       |
+| Command           | What it does                                              |
+| ----------------- | --------------------------------------------------------- |
+| `npm run dev`     | Development server with hot reload                        |
+| `npm run build`   | TypeScript type check and production build into `dist/`   |
+| `npm run preview` | Serves the production build locally                       |
+| `npm run deploy`  | Builds and publishes to GitHub Pages (`gh-pages` branch)  |
 
-## Struttura
+## Project structure
 
 ```
 src/
-├─ main.ts        Punto di ingresso: crea il museo e avvia il rendering
-├─ style.css      Stili globali
-├─ scene/         Renderer, camera, ciclo di rendering e ambienti (sale, luci)
-├─ controls/      Movimento in prima persona: tastiera, mouse, joystick touch
-├─ artworks/      Caricamento delle opere, cornici e faretti
-├─ ui/            Interfaccia: schermata iniziale, sottotitoli, pulsanti, minimappa
-├─ data/          Impostazioni del museo
-└─ utils/         Funzioni di supporto
+├─ main.ts        Entry point: builds the museum and starts rendering
+├─ style.css      Global styles
+├─ scene/         Renderer, camera, render loop, room, lights and barriers
+├─ controls/      First-person movement: keyboard, mouse, touch joystick, collisions
+├─ artworks/      Artwork loading and validation, frames, spotlights and labels
+├─ ui/            On-screen interface
+├─ data/          Museum settings
+└─ utils/         Helper functions
 public/
-├─ data/          Contenuti modificabili senza ricompilare (artworks.json)
-└─ images/        Immagini delle opere
+├─ data/          Content editable without rebuilding (artworks.json)
+└─ images/        Artwork images
 ```
 
-Unità di misura nella scena: 1 = 1 metro.
+Scene units: 1 = 1 meter.
 
-## Pubblicazione
+## Deployment
 
 ### GitHub Pages
 
-1. Crea un repository su GitHub e collegalo: `git remote add origin https://github.com/<utente>/<repo>.git`
-2. Esegui `npm run deploy`: la build viene pubblicata sul ramo `gh-pages`.
-3. Su GitHub, in **Settings → Pages**, scegli come sorgente il ramo `gh-pages`.
+1. Run `npm run deploy`: the build is published to the `gh-pages` branch.
+2. On GitHub, under **Settings → Pages**, select the `gh-pages` branch as the source.
 
-Il sito sarà su `https://<utente>.github.io/<repo>/`. La build usa percorsi relativi, quindi funziona anche in una sottocartella senza altre modifiche.
+The site will be available at `https://<user>.github.io/<repo>/`. The build uses relative paths, so it works from a subfolder with no extra configuration.
 
 ### Vercel
 
-Importa il repository su [vercel.com](https://vercel.com): Vite viene riconosciuto in automatico (build `npm run build`, cartella `dist`).
+Import the repository on [vercel.com](https://vercel.com): Vite is detected automatically (build command `npm run build`, output folder `dist`).
 
-## Roadmap
+## Credits
 
-- [x] **Fase 1 – Setup del progetto:** la pagina si avvia in locale e mostra una scena vuota
-- [x] **Fase 2 – La sala:** pavimento, pareti, soffitto, luci e transenne, con dimensioni configurabili
-- [x] **Fase 3 – Camminare dentro:** prima persona con WASD e mouse, collisioni, joystick touch
-- [x] **Fase 4 – I quadri:** opere caricate da `artworks.json`, con cornice e faretto
-- [ ] **Fase 5 – La visita guidata con zoom:** tappe con zoom sui dettagli, sottotitoli e voce narrante
-- [ ] **Fase 6 – Interfaccia:** schermata iniziale, minimappa, pannello informativo
-- [ ] **Fase 7 – Più sale ed editor dei dettagli**
-- [ ] **Fase 8 – Rifinitura e pubblicazione**
+The artwork images are reproductions of public domain paintings from [Wikimedia Commons](https://commons.wikimedia.org). Each source is also recorded in the `source` field of `artworks.json`.
 
-## Crediti
-
-Le immagini delle opere sono riproduzioni di dipinti di pubblico dominio, da [Wikimedia Commons](https://commons.wikimedia.org). La fonte di ciascuna è anche nel campo `source` di `artworks.json`.
-
-| Opera | Collocazione | Fonte |
-| ----- | ------------ | ----- |
-| Caravaggio, *Ragazzo morso da un ramarro* (1594-1595 circa) | National Gallery, Londra | [Commons](https://commons.wikimedia.org/wiki/File:Caravaggio_-_Boy_Bitten_by_a_Lizard.jpg) |
-| Caravaggio, *Bacco* (1596 circa) | Galleria degli Uffizi, Firenze | [Commons](https://commons.wikimedia.org/wiki/File:Baco,_por_Caravaggio.jpg) |
-| Caravaggio, *Canestra di frutta* (1599 circa) | Pinacoteca Ambrosiana, Milano | [Commons](https://commons.wikimedia.org/wiki/File:Basket_of_Fruit-Caravaggio_(c.1595).jpg) |
-| Caravaggio, *Vocazione di san Matteo* (1599-1600) | San Luigi dei Francesi, Roma | [Commons](https://commons.wikimedia.org/wiki/File:Caravaggio_%E2%80%94_The_Calling_of_Saint_Matthew.jpg) |
-| Caravaggio, *Giuditta e Oloferne* (1598-1599 circa) | Palazzo Barberini, Roma | [Commons](https://commons.wikimedia.org/wiki/File:Judith_Beheading_Holofernes-Caravaggio_(c.1598-9).jpg) |
-| Caravaggio, *Cena in Emmaus* (1601) | National Gallery, Londra | [Commons](https://commons.wikimedia.org/wiki/File:Caravaggio_-_Supper_at_Emmaus_-_National_Gallery_London.jpeg) |
-| Caravaggio, *Incredulità di san Tommaso* (1601-1602) | Bildergalerie, Potsdam | [Commons](https://commons.wikimedia.org/wiki/File:Caravaggio_incredulity.jpg) |
-| Caravaggio, *Davide con la testa di Golia* (1609-1610 circa) | Galleria Borghese, Roma | [Commons](https://commons.wikimedia.org/wiki/File:David_with_the_Head_of_Goliath-Caravaggio_(1610).jpg) |
+| Artwork | Collection | Source |
+| ------- | ---------- | ------ |
+| Caravaggio, *Boy Bitten by a Lizard* (c. 1594–1595) | National Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:Caravaggio_-_Boy_Bitten_by_a_Lizard.jpg) |
+| Caravaggio, *Bacchus* (c. 1596) | Uffizi Gallery, Florence | [Commons](https://commons.wikimedia.org/wiki/File:Baco,_por_Caravaggio.jpg) |
+| Caravaggio, *Basket of Fruit* (c. 1599) | Pinacoteca Ambrosiana, Milan | [Commons](https://commons.wikimedia.org/wiki/File:Basket_of_Fruit-Caravaggio_(c.1595).jpg) |
+| Caravaggio, *The Calling of Saint Matthew* (1599–1600) | San Luigi dei Francesi, Rome | [Commons](https://commons.wikimedia.org/wiki/File:Caravaggio_%E2%80%94_The_Calling_of_Saint_Matthew.jpg) |
+| Caravaggio, *Judith Beheading Holofernes* (c. 1598–1599) | Palazzo Barberini, Rome | [Commons](https://commons.wikimedia.org/wiki/File:Judith_Beheading_Holofernes-Caravaggio_(c.1598-9).jpg) |
+| Caravaggio, *Supper at Emmaus* (1601) | National Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:Caravaggio_-_Supper_at_Emmaus_-_National_Gallery_London.jpeg) |
+| Caravaggio, *The Incredulity of Saint Thomas* (1601–1602) | Bildergalerie, Potsdam | [Commons](https://commons.wikimedia.org/wiki/File:Caravaggio_incredulity.jpg) |
+| Caravaggio, *David with the Head of Goliath* (c. 1609–1610) | Galleria Borghese, Rome | [Commons](https://commons.wikimedia.org/wiki/File:David_with_the_Head_of_Goliath-Caravaggio_(1610).jpg) |
