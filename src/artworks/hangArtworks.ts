@@ -13,7 +13,7 @@ export interface HangOptions {
   spotStrength: number;
 }
 
-const FRAME_COLOR = 0xb08a3e;
+const FRAME_COLOR = 0xc29a4c;
 /** Lo stesso oro per tutte le cornici. */
 let frameMaterial: THREE.Material | null = null;
 
@@ -23,7 +23,7 @@ let frameMaterial: THREE.Material | null = null;
  */
 export function hangArtworks(placed: readonly PlacedArtwork[], room: Room, options: HangOptions): THREE.Group {
   frameMaterial ??= markShared(
-    new THREE.MeshStandardMaterial({ color: FRAME_COLOR, metalness: 1, roughness: 0.35, envMap: options.reflections }),
+    new THREE.MeshStandardMaterial({ color: FRAME_COLOR, metalness: 1, roughness: 0.32, envMap: options.reflections, vertexColors: true }),
   );
   const context = { frameMaterial, maxAnisotropy: options.maxAnisotropy, ceilingHeight: room.height, spotStrength: options.spotStrength };
   const group = new THREE.Group();

@@ -2,48 +2,40 @@ import * as THREE from 'three';
 import { seededRandom } from '../utils/random';
 import { createTextureCanvas } from '../utils/textureCanvas';
 
-/** Lato in metri della porzione di pavimento coperta da una ripetizione della texture. */
-export const PARQUET_TILE_SIZE = 2;
+/** Lato in metri della porzione di pavimento coperta da una ripetizione della texture: quattro file di doghe da 36 cm. */
+export const PARQUET_TILE_SIZE = 1.44;
 
 const SIZE = 1024;
-const COLUMNS = 10;
-const GAP = 2;
+const COLUMNS = 4;
+/** Doghe per fila in una ripetizione: la doga è lunga sei volte la sua larghezza. */
+const PLANKS_PER_COLUMN = 12;
+const GAP = 2.5;
 
 /**
- * Disegna una texture di parquet a doghe sfalsate che si ripete senza giunture visibili.
- * Le doghe corrono lungo l'asse verticale dell'immagine, cioè lungo la profondità della sala.
+ * Disegna una texture di parquet a spina ungherese che si ripete senza giunture visibili: file di doghe inclinate
+ * a 45°, alternate, con le teste tagliate in dritto lungo la fila, che si incontrano a punta.
+ * Le file corrono lungo l'asse verticale dell'immagine, cioè lungo la profondità della sala.
  */
 export function createParquetTexture(maxAnisotropy: number): THREE.CanvasTexture {
   const ctx = createTextureCanvas(SIZE, SIZE);
-
-  const random = seededRandom(7);
-  const plankWidth = SIZE / COLUMNS;
+  const random = seededRandom(11);
+  const columnWidth = SIZE / COLUMNS;
+  const plankStep = SIZE / PLANKS_PER_COLUMN;
 
   // Il fondo scuro resta visibile come fuga tra le doghe.
-  ctx.fillStyle = '#2b1a0e';
+  ctx.fillStyle = '#3a2c1f';
   ctx.fillRect(0, 0, SIZE, SIZE);
 
   for (let column = 0; column < COLUMNS; column++) {
-    const lengths: number[] = [];
-    let total = 0;
-    while (total < SIZE) {
-      const length = SIZE * (0.5 + random() * 0.45);
-      lengths.push(length);
-      total += length;
-    }
-    // L'ultima doga chiude esattamente la colonna; se resterebbe troppo corta si unisce alla precedente.
-    lengths[lengths.length - 1] -= total - SIZE;
-    if (lengths.length > 1 && lengths[lengths.length - 1] < SIZE * 0.15) {
-      lengths[lengths.length - 2] += lengths.pop()!;
-    }
-
-    let y = random() * SIZE;
-    for (const length of lengths) {
+    const slope = column % 2 === 0 ? 1 : -1;
+    const left = column * columnWidth;
+    // Nelle file che scendono le doghe partono più in alto, così le punte delle due file coincidono.
+    const start = slope > 0 ? 0 : columnWidth;
+    for (let plank = 0; plank < PLANKS_PER_COLUMN; plank++) {
       const seed = Math.floor(random() * 2 ** 31);
-      // Disegnata due volte: la parte che esce dal bordo inferiore rientra da quello superiore.
-      drawPlank(ctx, seed, column * plankWidth, y, plankWidth, length);
-      drawPlank(ctx, seed, column * plankWidth, y - SIZE, plankWidth, length);
-      y += length;
+      const top = start + plank * plankStep;
+      // Disegnata tre volte: le parti che escono da un bordo rientrano dall'altro.
+      for (const shift of [-SIZE, 0, SIZE]) drawPlank(ctx, seed, left, top + shift, columnWidth, plankStep, slope);
     }
   }
 
@@ -55,43 +47,50 @@ export function createParquetTexture(maxAnisotropy: number): THREE.CanvasTexture
   return texture;
 }
 
-function drawPlank(ctx: CanvasRenderingContext2D, seed: number, x: number, y: number, width: number, height: number): void {
+/** Una doga: un parallelogramma con i lati lunghi inclinati di `slope` (1 o -1) e le teste verticali. */
+function drawPlank(ctx: CanvasRenderingContext2D, seed: number, left: number, top: number, width: number, step: number, slope: number): void {
   const random = seededRandom(seed);
-  const hue = 27 + random() * 5;
+  const hue = 29 + random() * 6;
   const saturation = 30 + random() * 8;
-  const lightness = 45 + random() * 7;
+  const lightness = 39 + random() * 8;
 
-  const left = x + GAP / 2;
-  const top = y + GAP / 2;
-  const w = width - GAP;
-  const h = height - GAP;
+  // La fuga: i lati lunghi rientrano in verticale di GAP/2 · √2, le teste di GAP/2.
+  const inset = (GAP / 2) * Math.SQRT2;
+  const x0 = left + GAP / 2;
+  const x1 = left + width - GAP / 2;
+  const edge = (x: number, offset: number) => top + offset + slope * (x - left);
 
   ctx.save();
   ctx.beginPath();
-  ctx.rect(left, top, w, h);
+  ctx.moveTo(x0, edge(x0, inset));
+  ctx.lineTo(x1, edge(x1, inset));
+  ctx.lineTo(x1, edge(x1, step - inset));
+  ctx.lineTo(x0, edge(x0, step - inset));
+  ctx.closePath();
   ctx.clip();
 
-  const gradient = ctx.createLinearGradient(0, top, 0, top + h);
-  gradient.addColorStop(0, `hsl(${hue} ${saturation}% ${lightness + 2}%)`);
-  gradient.addColorStop(1, `hsl(${hue} ${saturation}% ${lightness - 2}%)`);
+  // Più chiara a una testa che all'altra, come una doga vera sotto la luce radente.
+  const gradient = ctx.createLinearGradient(x0, edge(x0, 0), x1, edge(x1, 0));
+  gradient.addColorStop(0, `hsl(${hue} ${saturation}% ${lightness + 3}%)`);
+  gradient.addColorStop(1, `hsl(${hue} ${saturation}% ${lightness - 3}%)`);
   ctx.fillStyle = gradient;
-  ctx.fillRect(left, top, w, h);
+  ctx.fillRect(left, Math.min(edge(left, 0), edge(left + width, 0)) - 1, width, width + step + 2);
 
   // Venature: linee sottili e leggermente ondulate lungo la doga.
-  const veins = 10 + Math.floor(random() * 10);
+  const veins = 6 + Math.floor(random() * 7);
   for (let i = 0; i < veins; i++) {
-    const veinX = left + random() * w;
-    const amplitude = 1 + random() * 4;
-    const frequency = 0.004 + random() * 0.012;
+    const offset = random() * step;
+    const amplitude = 0.5 + random() * 2;
+    const frequency = 0.02 + random() * 0.05;
     const phase = random() * Math.PI * 2;
-
     ctx.beginPath();
-    ctx.moveTo(veinX + Math.sin(phase) * amplitude, top);
-    for (let t = 8; t <= h; t += 8) {
-      ctx.lineTo(veinX + Math.sin(t * frequency + phase) * amplitude, top + t);
+    for (let x = left; x <= left + width; x += 6) {
+      const y = edge(x, offset) + Math.sin(x * frequency + phase) * amplitude;
+      if (x === left) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = `hsl(${hue} ${saturation}% ${lightness - 14 - random() * 8}% / ${0.2 + random() * 0.35})`;
-    ctx.lineWidth = 0.6 + random() * 1.6;
+    ctx.strokeStyle = `hsl(${hue} ${saturation + 6}% ${lightness - 12 - random() * 8}% / ${0.15 + random() * 0.3})`;
+    ctx.lineWidth = 0.6 + random() * 1.4;
     ctx.stroke();
   }
 

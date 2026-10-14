@@ -3,12 +3,13 @@
  * Unità di misura nella scena: 1 = 1 metro.
  */
 export const settings = {
-  /** Le sale si generano dai filtri scelti all'inizio, una dopo l'altra verso nord, collegate da porte. */
+  /**
+   * Le sale si generano dalle tappe scelte all'inizio e si dispongono su una pianta quasi quadrata, collegate da porte:
+   * il percorso sale verso nord, gira, scende nella colonna accanto e così via. Le opere stanno sulle pareti senza porte.
+   */
   rooms: {
-    /** Larghezza, lungo l'asse X: le opere stanno sulle due pareti lunghe, est e ovest. */
-    width: 10,
-    /** Profondità minima: le sale con opere grandi si allungano da sole. */
-    minDepth: 9,
+    /** Lato minimo delle sale, quadrate: con opere grandi si allargano da sole, insieme alle altre della fila o della colonna. */
+    minSize: 10,
     height: 4.5,
     wallThickness: 0.2,
     /** Spazio minimo tra due opere (targhetta compresa) e tra un'opera e le pareti di fondo. */

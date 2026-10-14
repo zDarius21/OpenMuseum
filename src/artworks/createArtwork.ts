@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import type { Wall } from '../scene/Room';
+import { createMoldingGeometry, type ProfilePoint } from '../scene/molding';
+import { SPOT_TRACK_DISTANCE, type Wall } from '../scene/Room';
 import type { Artwork } from './artworksData';
 import { createLabel, LABEL_CENTER_HEIGHT, LABEL_GAP, LABEL_HEIGHT, LABEL_WIDTH } from './label';
 import { BADGE_RADIUS, createTourBadge, releaseTourBadge } from './tourBadge';
@@ -24,7 +25,9 @@ export interface ArtworkSpot {
 const UP = new THREE.Vector3(0, 1, 0);
 const FORWARD = new THREE.Vector3(0, 0, 1);
 
-const FRAME_DEPTH = 0.05;
+/** Quanto sporge dal muro la cornice: di più per le cornici larghe dei quadri grandi. */
+const MIN_FRAME_DEPTH = 0.05;
+const FRAME_DEPTH_RATIO = 0.45;
 /** Quanto la cornice copre i bordi della tela. */
 const REBATE = 0.01;
 /** Distanza della tela dal muro, rientrata rispetto al fronte della cornice. */
@@ -32,10 +35,35 @@ export const CANVAS_OFFSET = 0.02;
 /** Spazio tra la targhetta e il bollino della visita guidata. */
 const BADGE_GAP = 0.04;
 
-/** Inclinazione del faretto dalla verticale: a 30° la luce non riflette verso chi guarda. */
-const SPOT_TILT = THREE.MathUtils.degToRad(30);
-/** Distanza della lente del faretto dal soffitto. */
-const SPOT_HANG = 0.25;
+/** Lunghezza dello stelo che regge il faretto sotto il binario: con il binario a 1,55 m dal muro il faretto è inclinato
+ * di circa 30° dalla verticale, abbastanza perché la luce non rifletta verso chi guarda. */
+const SPOT_STEM = 0.1;
+/** Distanza tra l'attacco del faretto allo stelo e la lente. */
+const SPOT_BODY_LENGTH = 0.16;
+/** Altezza del binario dei faretti, sotto il soffitto. */
+const TRACK_HEIGHT = 0.045;
+
+/**
+ * Profilo di una cornice dorata, in sezione, dalla tela verso il muro: un tondino sul filo della tela, una gola concava
+ * che sale verso il bordo esterno arrotondato. L'offset, tranne il primo punto, e l'altezza sono in frazioni
+ * della larghezza e della profondità della cornice. Le parti in ombra (gola, filo della tela) sono più scure.
+ */
+const FRAME_PROFILE: readonly [offset: number, height: number, shade: number][] = [
+  [0.02, 0.62, 0.75],
+  [0.06, 0.72, 1],
+  [0.1, 0.66, 0.85],
+  [0.16, 0.58, 0.62],
+  [0.28, 0.63, 0.66],
+  [0.42, 0.76, 0.82],
+  [0.56, 0.9, 0.95],
+  [0.68, 0.98, 1],
+  [0.78, 1, 1],
+  [0.88, 0.94, 0.96],
+  [0.95, 0.8, 0.9],
+  [0.99, 0.6, 0.82],
+  [1, 0.45, 0.75],
+  [1, 0, 0.6],
+];
 
 /** Colore della tela finché la sua immagine non è arrivata. */
 const LOADING_COLOR = 0x2a2622;
@@ -78,6 +106,8 @@ export function createArtwork(
   const group = new THREE.Group();
   group.name = `artwork:${artwork.id}`;
   group.userData.artwork = artwork;
+  // Prima delle sale: i quadri coprono la parete, che dove c'è un quadro non va colorata.
+  group.renderOrder = -1;
   group.position.copy(wall.center).addScaledVector(wall.right, position).setY(centerHeight);
   group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(wall.right, UP, wall.normal));
 
@@ -153,44 +183,28 @@ export function disposeArtwork(group: THREE.Object3D): void {
   });
 }
 
-/** Cornice a sezione smussata: un rettangolo con un foro, estruso verso la sala. */
+/** Cornice modanata intorno alla tela, che appoggia sul muro (z = 0) e copre di poco i bordi della tela. */
 function createFrameGeometry(width: number, height: number, frameWidth: number): THREE.BufferGeometry {
-  // La smussatura allarga il bordo esterno e restringe il foro: le misure la compensano.
-  const bevel = Math.min(0.012, frameWidth * 0.25);
-  const outerW = width / 2 + frameWidth - bevel;
-  const outerH = height / 2 + frameWidth - bevel;
-  const innerW = width / 2 - REBATE + bevel;
-  const innerH = height / 2 - REBATE + bevel;
-
-  const shape = new THREE.Shape()
-    .moveTo(-outerW, -outerH)
-    .lineTo(outerW, -outerH)
-    .lineTo(outerW, outerH)
-    .lineTo(-outerW, outerH)
-    .closePath();
-  shape.holes.push(
-    new THREE.Path().moveTo(-innerW, -innerH).lineTo(-innerW, innerH).lineTo(innerW, innerH).lineTo(innerW, -innerH).closePath(),
-  );
-
-  const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth: FRAME_DEPTH - 2 * bevel,
-    bevelEnabled: true,
-    bevelThickness: bevel,
-    bevelSize: bevel,
-    bevelSegments: 3,
-  });
-  // Il retro della cornice appoggia sul muro (z = 0).
-  return geometry.translate(0, 0, bevel);
+  const depth = Math.max(MIN_FRAME_DEPTH, frameWidth * FRAME_DEPTH_RATIO);
+  const profile: ProfilePoint[] = [
+    // Il filo interno, appena davanti alla tela.
+    { offset: -REBATE, height: CANVAS_OFFSET + 0.003, shade: 0.55 },
+    ...FRAME_PROFILE.map(([offset, height, shade]) => ({ offset: offset * frameWidth, height: height * depth, shade })),
+  ];
+  return createMoldingGeometry(width / 2, height / 2, profile);
 }
 
-/** Lampada su stelo appesa al soffitto, inclinata verso il quadro, con il cono di luce dimensionato sulla cornice. */
+/**
+ * Faretto appeso con un corto stelo al binario sul soffitto, puntato sul centro del quadro, con il cono di luce
+ * dimensionato sulla cornice. Il binario sta alla stessa distanza dal muro per tutti i quadri: cambia l'inclinazione.
+ */
 function addSpotlight(group: THREE.Group, artwork: Artwork, centerHeight: number, lighting: ArtworkContext): void {
   const frameWidth = frameWidthFor(artwork);
-  const ceilingY = lighting.ceilingHeight - centerHeight;
-  const lensY = ceilingY - SPOT_HANG;
-  const lens = new THREE.Vector3(0, lensY, lensY * Math.tan(SPOT_TILT));
+  const trackY = lighting.ceilingHeight - TRACK_HEIGHT - centerHeight;
+  const pivot = new THREE.Vector3(0, trackY - SPOT_STEM, SPOT_TRACK_DISTANCE);
   const target = new THREE.Vector3(0, 0, CANVAS_OFFSET);
-  const direction = target.clone().sub(lens).normalize();
+  const direction = target.clone().sub(pivot).normalize();
+  const lens = pivot.clone().addScaledVector(direction, SPOT_BODY_LENGTH);
   const distance = lens.distanceTo(target);
 
   // Sul muro il cono si allunga in verticale (circa il doppio, con la luce a 60° dalla parete):
@@ -200,17 +214,16 @@ function addSpotlight(group: THREE.Group, artwork: Artwork, centerHeight: number
   group.userData.spot = spot;
 
   const body = new THREE.Mesh(trackBodyGeometry, trackBodyMaterial);
-  body.position.copy(lens).addScaledVector(direction, -0.08);
+  body.position.copy(lens).addScaledVector(direction, -SPOT_BODY_LENGTH / 2);
   body.quaternion.setFromUnitVectors(UP, direction);
 
   const lensMesh = new THREE.Mesh(trackLensGeometry, trackLensMaterial);
   lensMesh.position.copy(lens).addScaledVector(direction, 0.002);
   lensMesh.quaternion.setFromUnitVectors(FORWARD, direction);
 
-  const back = lens.clone().addScaledVector(direction, -0.16);
   const stem = new THREE.Mesh(trackStemGeometry, trackBodyMaterial);
-  stem.scale.y = ceilingY - back.y;
-  stem.position.set(back.x, (ceilingY + back.y) / 2, back.z);
+  stem.scale.y = SPOT_STEM;
+  stem.position.set(pivot.x, pivot.y + SPOT_STEM / 2, pivot.z);
 
   group.add(body, lensMesh, stem);
 }

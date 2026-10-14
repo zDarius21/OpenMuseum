@@ -2,18 +2,19 @@ import * as THREE from 'three';
 import { onLanguageChange } from '../i18n/language';
 import { t } from '../i18n/strings';
 import type { PlacedArtwork } from '../rooms/layout';
-import type { Wall, WallId } from '../scene/Room';
+import { barrierLines, WALL_IDS, type RoomBounds, type Wall, type WallId } from '../scene/Room';
 
 /** La sala da disegnare. */
 export interface MinimapRoom {
-  width: number;
-  depth: number;
-  /** Faccia interna della parete nord, lungo z: è il lato in alto della mappa. */
-  north: number;
+  /** Facce interne delle pareti: la nord è il lato in alto della mappa. */
+  bounds: RoomBounds;
   /** Distanza delle transenne dalle pareti. */
   barrierDistance: number;
   doorWidth: number;
-  doors: { south: boolean; north: boolean };
+  /** Pareti con una porta, al centro. */
+  doors: readonly WallId[];
+  /** Pareti con i quadri, davanti alle quali corrono le transenne. */
+  artWalls: readonly WallId[];
   walls: Record<WallId, Wall>;
   artworks: readonly PlacedArtwork[];
   /** Didascalia sotto la mappa, per esempio «Sala 2 di 5 · Roma». */
@@ -124,11 +125,11 @@ export class Minimap {
   }
 
   private toMapX(x: number): number {
-    return PADDING + (x + (this.room?.width ?? 0) / 2) * this.scale;
+    return PADDING + (x - (this.room?.bounds.west ?? 0)) * this.scale;
   }
 
   private toMapY(z: number): number {
-    return PADDING + (z - (this.room?.north ?? 0)) * this.scale;
+    return PADDING + (z - (this.room?.bounds.north ?? 0)) * this.scale;
   }
 
   /** Adatta le dimensioni allo schermo e alla sala: la sala occupa tutto lo spazio disponibile mantenendo le proporzioni. */
@@ -136,9 +137,11 @@ export class Minimap {
     const room = this.room;
     if (!room) return;
     const max = SMALL_SCREEN.matches ? MAX_SIZE_SMALL : MAX_SIZE;
-    this.scale = Math.min((max.width - 2 * PADDING) / room.width, (max.height - 2 * PADDING) / room.depth);
-    this.cssWidth = Math.round(room.width * this.scale + 2 * PADDING);
-    this.cssHeight = Math.round(room.depth * this.scale + 2 * PADDING);
+    const width = room.bounds.east - room.bounds.west;
+    const depth = room.bounds.south - room.bounds.north;
+    this.scale = Math.min((max.width - 2 * PADDING) / width, (max.height - 2 * PADDING) / depth);
+    this.cssWidth = Math.round(width * this.scale + 2 * PADDING);
+    this.cssHeight = Math.round(depth * this.scale + 2 * PADDING);
 
     const ratio = window.devicePixelRatio || 1;
     for (const canvas of [this.canvas, this.background]) {
@@ -158,45 +161,37 @@ export class Minimap {
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, this.cssWidth, this.cssHeight);
 
-    const { width, depth, barrierDistance } = room;
-    const left = PADDING;
-    const top = PADDING;
-    const right = left + width * this.scale;
-    const bottom = top + depth * this.scale;
+    const { bounds } = room;
     ctx.fillStyle = FLOOR_COLOR;
-    ctx.fillRect(left, top, right - left, bottom - top);
+    ctx.fillRect(PADDING, PADDING, (bounds.east - bounds.west) * this.scale, (bounds.south - bounds.north) * this.scale);
 
-    // Transenne lungo le pareti lunghe.
-    const inset = barrierDistance * this.scale;
+    // Transenne davanti alle pareti con i quadri.
     ctx.strokeStyle = ROPE_COLOR;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (const x of [left + inset, right - inset]) {
-      ctx.moveTo(x, top);
-      ctx.lineTo(x, bottom);
+    for (const line of barrierLines(bounds, room.artWalls, room.barrierDistance)) {
+      line.forEach((point, index) => (index === 0 ? ctx.moveTo : ctx.lineTo).call(ctx, this.toMapX(point.x), this.toMapY(point.z)));
     }
     ctx.stroke();
 
-    // Pareti, interrotte dalle porte.
-    const door = (room.doorWidth / 2) * this.scale;
-    const middle = (left + right) / 2;
+    // Pareti, interrotte dalle porte: ognuna da un angolo all'altro, verso destra per chi la guarda dall'interno.
     ctx.strokeStyle = WALL_COLOR;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(left, top);
-    ctx.lineTo(left, bottom);
-    ctx.moveTo(right, top);
-    ctx.lineTo(right, bottom);
-    for (const [y, hasDoor] of [
-      [top, room.doors.north],
-      [bottom, room.doors.south],
-    ] as const) {
-      ctx.moveTo(left, y);
-      if (hasDoor) {
-        ctx.lineTo(middle - door, y);
-        ctx.moveTo(middle + door, y);
+    for (const id of WALL_IDS) {
+      const wall = room.walls[id];
+      const ends = room.doors.includes(id)
+        ? [
+            [-wall.length / 2, -room.doorWidth / 2],
+            [room.doorWidth / 2, wall.length / 2],
+          ]
+        : [[-wall.length / 2, wall.length / 2]];
+      for (const [from, to] of ends) {
+        const a = wall.center.clone().addScaledVector(wall.right, from);
+        const b = wall.center.clone().addScaledVector(wall.right, to);
+        ctx.moveTo(this.toMapX(a.x), this.toMapY(a.z));
+        ctx.lineTo(this.toMapX(b.x), this.toMapY(b.z));
       }
-      ctx.lineTo(right, y);
     }
     ctx.stroke();
 

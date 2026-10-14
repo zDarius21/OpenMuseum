@@ -5,18 +5,15 @@ import { redrawLabel } from '../artworks/label';
 import { artworkOf } from '../artworks/pickArtwork';
 import { t } from '../i18n/strings';
 import type { BarrierConfig } from '../scene/Barriers';
-import { createRoom, type Room, type RoomConfig } from '../scene/Room';
-import { layoutRoom, type LayoutOptions, type RoomLayout } from './layout';
+import { createRoom, type Room, type RoomConfig, type WallId } from '../scene/Room';
+import { planFloor, type PlacedRoom } from './floorPlan';
+import type { LayoutOptions } from './layout';
 import { LightPool } from './LightPool';
 import { roomTitle, type RoomPlan } from './plan';
 
-/** Una sala del percorso, costruita o no. Il titolo, nella lingua scelta, si ricava con roomTitle. */
-export interface RoomInfo extends Pick<RoomPlan, 'movement' | 'part'> {
+/** Una sala del percorso, costruita o no, al suo posto nella pianta. Il titolo, nella lingua scelta, si ricava con roomTitle. */
+export interface RoomInfo extends Pick<RoomPlan, 'movement' | 'part'>, PlacedRoom {
   index: number;
-  /** Facce interne delle pareti sud e nord, lungo z: le sale vanno verso nord, cioè verso z più piccole. */
-  south: number;
-  north: number;
-  layout: RoomLayout;
 }
 
 export interface RoomManagerOptions {
@@ -55,7 +52,8 @@ interface Slot {
 const START_DISTANCE = 1.5;
 
 /**
- * Le sale del museo, in fila da sud a nord e collegate da porte. Sono costruite solo quelle vicine al visitatore:
+ * Le sale del museo, una dopo l'altra su una pianta a griglia (vedi planFloor) e collegate da porte; la distanza tra
+ * due sale è quella lungo il percorso. Sono costruite solo quelle vicine al visitatore:
  * le più lontane vuote, perché si vedano in fondo attraverso le porte; le vicine arredate, e le più vicine con
  * le immagini. Camminando le altre si costruiscono e si smontano, così il museo pesa come poche sale anche quando sono tante.
  */
@@ -92,10 +90,12 @@ export class RoomManager {
     return this.slots[this.currentIndex]?.info ?? null;
   }
 
-  /** Il punto di partenza, nella prima sala, e un punto verso cui guardare. */
+  /** Il punto di partenza, davanti alla parete sud della prima sala, e un punto verso cui guardare, a nord. */
   get start(): { position: THREE.Vector3; lookAt: THREE.Vector3 } {
-    const south = this.slots[0]?.info.south ?? 0;
-    return { position: new THREE.Vector3(0, 0, south - START_DISTANCE), lookAt: new THREE.Vector3(0, 0, south - START_DISTANCE - 10) };
+    const bounds = this.slots[0]?.info.bounds ?? { west: 0, east: 0, south: 0, north: 0 };
+    const x = (bounds.west + bounds.east) / 2;
+    const z = bounds.south - START_DISTANCE;
+    return { position: new THREE.Vector3(x, 0, z), lookAt: new THREE.Vector3(x, 0, z - 10) };
   }
 
   /** Il gruppo della sala costruita, con le sue pareti, se c'è. */
@@ -109,14 +109,14 @@ export class RoomManager {
     this.lights.assign([]);
     this.currentIndex = -1;
 
-    let south = 0;
-    this.slots = plans.map((plan, index) => {
-      const layout = layoutRoom(plan.artworks, this.options.layout);
-      const info: RoomInfo = { index, movement: plan.movement, part: plan.part, south, north: south - layout.depth, layout };
-      // La sala successiva comincia dall'altra parte della parete nord.
-      south = info.north - this.options.room.wallThickness;
-      return { info, room: null, artworks: null, images: 'none', generation: 0 };
-    });
+    const floor = planFloor(plans, { ...this.options.layout, wallThickness: this.options.room.wallThickness });
+    this.slots = plans.map((plan, index) => ({
+      info: { index, movement: plan.movement, part: plan.part, ...floor[index] },
+      room: null,
+      artworks: null,
+      images: 'none',
+      generation: 0,
+    }));
   }
 
   /**
@@ -181,16 +181,17 @@ export class RoomManager {
     this.lights.update(delta);
     this.uploadQueue.shift()?.();
     if (this.currentIndex < 0) return;
-    const index = this.roomAt(position.z);
+    const index = this.roomAt(position);
     if (index !== this.currentIndex) this.setCurrent(index);
   }
 
-  /** La sala che contiene la coordinata z: il confine tra due sale è a metà della parete che le separa. */
-  private roomAt(z: number): number {
+  /** La sala in cui si trova il punto: il confine tra due sale è a metà della parete che le separa. Fuori dalle sale, quella di prima. */
+  private roomAt({ x, z }: THREE.Vector3): number {
     const half = this.options.room.wallThickness / 2;
-    const index = this.slots.findIndex((slot) => z <= slot.info.south + half && z > slot.info.north - half);
-    if (index >= 0) return index;
-    return z > this.slots[0].info.south ? 0 : this.slots.length - 1;
+    const index = this.slots.findIndex(({ info: { bounds } }) => {
+      return x >= bounds.west - half && x < bounds.east + half && z <= bounds.south + half && z > bounds.north - half;
+    });
+    return index >= 0 ? index : this.currentIndex;
   }
 
   private setCurrent(index: number): void {
@@ -226,9 +227,9 @@ export class RoomManager {
    */
   private closeDoorsToEmptyRooms(): void {
     for (const slot of this.slots) {
-      const { index } = slot.info;
-      slot.room?.setDoorClosed('south', !this.slots[index - 1]?.room);
-      slot.room?.setDoorClosed('north', !this.slots[index + 1]?.room);
+      const { index, doors } = slot.info;
+      if (doors.previous) slot.room?.setDoorClosed(doors.previous, !this.slots[index - 1]?.room);
+      if (doors.next) slot.room?.setDoorClosed(doors.next, !this.slots[index + 1]?.room);
     }
   }
 
@@ -244,13 +245,13 @@ export class RoomManager {
   }
 
   /** I cartelli sopra le porte di una sala, con il numero e il titolo della sala precedente e di quella successiva. */
-  private signsOf(info: RoomInfo): { south?: string; north?: string } {
+  private signsOf(info: RoomInfo): Partial<Record<WallId, string>> {
     const previous = this.slots[info.index - 1]?.info;
     const next = this.slots[info.index + 1]?.info;
-    return {
-      south: previous && t().room.previousSign(previous.index + 1, roomTitle(previous)),
-      north: next && t().room.nextSign(next.index + 1, roomTitle(next)),
-    };
+    const signs: Partial<Record<WallId, string>> = {};
+    if (previous && info.doors.previous) signs[info.doors.previous] = t().room.previousSign(previous.index + 1, roomTitle(previous));
+    if (next && info.doors.next) signs[info.doors.next] = t().room.nextSign(next.index + 1, roomTitle(next));
+    return signs;
   }
 
   /** Costruisce la sala vuota: pareti, pavimento, soffitto, porte e cartelli. */
@@ -259,10 +260,11 @@ export class RoomManager {
     const { info } = slot;
     const room = createRoom({
       config: this.options.room,
-      depth: info.layout.depth,
-      south: info.south,
-      doors: { south: info.index > 0, north: info.index < this.slots.length - 1 },
+      bounds: info.bounds,
+      doors: [info.doors.previous, info.doors.next].filter((wall) => wall !== undefined),
+      artWalls: info.layout.artWalls,
       signs: this.signsOf(info),
+      wallColor: info.movement.wall,
       barriers: this.options.barriers,
       maxAnisotropy: this.options.hang.maxAnisotropy,
       reflections: this.options.hang.reflections,

@@ -106,12 +106,11 @@ function announceRoom(room: RoomInfo, total: number): void {
 
 function minimapRoom(room: RoomInfo, total: number) {
   return {
-    width: settings.rooms.width,
-    depth: room.layout.depth,
-    north: room.north,
+    bounds: room.bounds,
     barrierDistance: settings.barriers.distance,
     doorWidth: settings.rooms.door.width,
-    doors: { south: room.index > 0, north: room.index < total - 1 },
+    doors: [room.doors.previous, room.doors.next].filter((wall) => wall !== undefined),
+    artWalls: room.layout.artWalls,
     walls: rooms.roomOf(room.index)!.walls,
     artworks: room.layout.placed,
     caption: t().room.caption(room.index + 1, total, roomTitle(room)),
