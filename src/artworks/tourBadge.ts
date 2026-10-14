@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createTextureCanvas } from '../utils/textureCanvas';
 
 /** Raggio del bollino, in metri. */
 export const BADGE_RADIUS = 0.075;
@@ -14,7 +15,9 @@ const ringGeometry = new THREE.RingGeometry(BADGE_RADIUS * 0.92, BADGE_RADIUS, 4
 // Non illuminati: il bollino resta brillante e si nota anche dall'altra parte della sala.
 const discMaterial = new THREE.MeshBasicMaterial({ map: createBadgeTexture(), transparent: true });
 const ringMaterial = new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, depthWrite: false });
-const rings = new Set<THREE.Mesh>();
+const rings = new Set<THREE.Object3D>();
+// Forme e materiali sono gli stessi per tutti i bollini: non vanno liberati quando un quadro viene smontato.
+for (const resource of [discGeometry, ringGeometry, discMaterial, ringMaterial]) resource.userData.shared = true;
 
 /**
  * Bollino dorato con il simbolo ▶ che segnala i quadri con visita guidata, con un anello che pulsa intorno.
@@ -36,6 +39,11 @@ export function createTourBadge(): THREE.Group {
   return badge;
 }
 
+/** Smette di animare l'anello di un quadro smontato (gli altri oggetti vengono ignorati). */
+export function releaseTourBadge(object: THREE.Object3D): void {
+  rings.delete(object);
+}
+
 /** Da chiamare a ogni frame con il tempo in secondi: tutti gli anelli pulsano insieme. */
 export function animateTourBadges(time: number): void {
   const phase = (time % PULSE_PERIOD) / PULSE_PERIOD;
@@ -46,11 +54,7 @@ export function animateTourBadges(time: number): void {
 
 function createBadgeTexture(): THREE.CanvasTexture {
   const size = 128;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D non disponibile');
+  const ctx = createTextureCanvas(size, size);
 
   const center = size / 2;
   ctx.fillStyle = GOLD;
@@ -73,7 +77,7 @@ function createBadgeTexture(): THREE.CanvasTexture {
   ctx.closePath();
   ctx.fill();
 
-  const texture = new THREE.CanvasTexture(canvas);
+  const texture = new THREE.CanvasTexture(ctx.canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }

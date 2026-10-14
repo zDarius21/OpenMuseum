@@ -1,13 +1,16 @@
 # OpenMuseum – 3D Virtual Museum
 
-A 3D virtual museum you can walk through in the browser, on desktop and mobile. Explore a gallery of paintings in first person, each shown at its real size with a gilded frame, a dedicated spotlight and a wall label. Walk up to the rope in front of a painting and click it to start a guided tour: the camera glides in and zooms on its details while a narrator reads the explanation aloud (currently available for *The Calling of Saint Matthew*).
+A 3D virtual museum you can walk through in the browser, on desktop and mobile. Choose which paintings to see and how to group them, and the museum builds a sequence of small rooms to explore in first person, each painting shown at its real size with a gilded frame, a spotlight and a wall label. Walk up to the rope in front of a painting and click it to start a guided tour: the camera glides in and zooms on its details while a narrator reads the explanation aloud (currently available for *The Calling of Saint Matthew*).
 
 ## Features
 
-- **Welcome screen:** shows how to move, look around and start a tour, with instructions tailored to desktop or touch screens and a progress bar while the paintings load. The `?` button opens it again at any time.
+- **Visit builder:** the start menu filters the collection by period, city and guided tours, and groups the paintings into rooms by period or by city, with 4, 6 or 8 works per room; a live summary shows how many works and rooms you'll get. Each room's length adapts to the paintings it holds, which are hung chronologically on the two long walls.
+- **Rooms connected by doors:** walk from one room to the next; a sign above each door names the room beyond it, and a banner announces the room you enter.
+- **Progressive loading:** only the rooms around the visitor are built, and only the current and adjacent rooms download their images; farther rooms are taken down and their textures freed. A fixed pool of eight spotlights follows the visitor from room to room, so the lighting cost stays that of a single room and no shaders are recompiled.
+- **Welcome screen:** after the menu, shows how to move, look around and start a tour, with instructions tailored to desktop or touch screens and a progress bar while the first room loads. The `?` button opens it again at any time, and lets you change the filters and rebuild the museum.
 - **Artwork info card:** standing at the rope in front of a painting and looking at it opens a card with its author, title, date, size, location and a short description, plus a button to start its guided tour or, for paintings without one, the close-up view (`Enter` on desktop).
 - **Close-up view:** standing at the rope, clicking or tapping a painting without a guided tour fills the screen with it, centered, with its info card on top (the `i` button hides it). Zoom toward any point with the mouse wheel, a pinch or a double click, drag to explore the details, and press `Esc` or the close button to step back to where you were.
-- **Minimap:** a top-down map of the room shows where you are and which way you are looking, with the painting whose card is open highlighted.
+- **Minimap:** a top-down map of the current room, with its doors, shows where you are and which way you are looking, with the painting whose card is open highlighted and the room's name below.
 - **Guided tour markers:** paintings with a tour have a gold ▶ badge with a pulsing ring next to their label, and are marked in gold on the minimap.
 - **Guided tours:** clicking or tapping a painting while standing near its rope, or using the button in its info card, starts a step-by-step tour (from farther away, a hint asks you to come closer). For each step the camera animates to a detail defined in the artwork's data, the detail is highlighted, and a subtitle is shown and read aloud with the Web Speech API. The tour advances on its own and can be paused, stepped back and forth, or closed (keyboard: arrows, `Space`, `Esc`).
 - **First-person exploration** with keyboard and mouse on desktop, and a virtual joystick plus drag-to-look on touch screens.
@@ -16,7 +19,7 @@ A 3D virtual museum you can walk through in the browser, on desktop and mobile. 
 - **Optimized images:** paintings are served by Sanity's image CDN, capped at 2048 px on the longer side and converted to WebP or AVIF when the browser supports them.
 - **Robust content loading:** invalid entries are skipped with a clear console warning, a placeholder image is used if a picture fails to load, and a message appears if the content can't be reached.
 - **Procedural assets:** the parquet floor and placeholder images are drawn in code, keeping downloads small.
-- **Configurable:** room size, lighting, barriers, movement speed, field of view and tour timing live in a single settings file.
+- **Configurable:** room size, how many rooms are built and loaded around the visitor, menu options, lighting, barriers, movement speed, field of view and tour timing live in a single settings file.
 
 The in-app interface (labels, hints, console messages) is in Italian.
 
@@ -59,7 +62,7 @@ The artworks are read from the Sanity project configured in the `sanity` section
 
 ## Settings
 
-Room size, barriers, lighting, movement speed, field of view, guided tour timing and the Sanity project (`projectId`, `dataset`) can be changed in [`src/data/settings.ts`](src/data/settings.ts) without touching the rest of the code.
+Room size, how many rooms are built and loaded around the visitor, the menu options, barriers, lighting, movement speed, field of view, guided tour timing and the Sanity project (`projectId`, `dataset`) can be changed in [`src/data/settings.ts`](src/data/settings.ts) without touching the rest of the code.
 
 ## Managing artworks
 
@@ -77,12 +80,11 @@ Open <http://localhost:3333> and sign in with a Sanity account that has access t
 | --------------------- | -------- | ------- |
 | Titolo                | yes      | Title of the artwork |
 | Identificativo        | yes      | Unique short name, generated from the title |
-| Parete                | yes      | Wall: `nord` (north, facing the entrance), `sud` (south), `est` (east, right), `ovest` (west, left) |
-| Posizione sulla parete | yes     | Meters from the center of the wall, positive to the right when facing it |
 | Larghezza, Altezza    | yes      | Real canvas size in meters, frame excluded |
-| Altezza del centro da terra | no | Height of the painting's center from the floor (default 1.55 m) |
 | Immagine              | no       | The painting; if missing or not loadable, a placeholder is used |
-| Autore, Anno, Dove è conservata, Fonte dell'immagine | no | Author, year, museum that holds the work, and the page the image comes from |
+| Anno                  | no       | Date, for example "1599 circa": its first year orders the paintings and drives the period filter |
+| Dove è conservata     | no       | Museum and city separated by a comma, for example "Galleria Borghese, Roma": the city drives the city filter and the rooms by city |
+| Autore, Fonte dell'immagine | no | Author, and the page the image comes from |
 | Descrizione           | no       | Two or three sentences about the work, shown in its info card |
 
 ### Guided tour
@@ -122,11 +124,13 @@ In the `studio/` folder:
 src/
 ├─ main.ts        Entry point: builds the museum and starts rendering
 ├─ style.css      Global styles
-├─ scene/         Renderer, camera, render loop, room, lights and barriers
+├─ scene/         Renderer, camera, render loop, room with doors, barriers
 ├─ controls/      First-person movement: keyboard, mouse, touch joystick, collisions
-├─ artworks/      Artwork loading and validation, frames, spotlights, labels and click picking
+├─ rooms/         Visit filters, grouping into rooms, room layout, progressive building and loading, spotlight pool
+├─ artworks/      Artwork loading and validation, frames, labels, tour badges and click picking
 ├─ tour/          Guided tour: camera animation, detail highlight, narration
-├─ ui/            On-screen interface: controls hint, crosshair, tour panel
+├─ viewer/        Close-up view: framing, zoom and pan
+├─ ui/            On-screen interface: start menu, minimap, artwork card, crosshair, tour and close-up panels
 ├─ data/          Museum settings
 └─ utils/         Helper functions
 studio/           Sanity Studio: the schema of the artworks and the editing interface

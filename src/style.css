@@ -271,6 +271,173 @@ body {
   }
 }
 
+/* Menu iniziale: i filtri da cui si generano le sale */
+
+.start__filters {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field legend {
+  margin-bottom: 0.5rem;
+  padding: 0;
+  color: #b8ad9f;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.segments,
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* Le caselle vere restano nel modulo, invisibili ma raggiungibili con la tastiera: si vede l'etichetta accanto. */
+.segment,
+.chip,
+.toggle {
+  position: relative;
+  cursor: pointer;
+}
+
+.segment input,
+.chip input,
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segment span {
+  display: inline-block;
+  min-width: 3rem;
+  padding: 0.45rem 0.95rem;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.segment input:checked + span {
+  border-color: #e0bd6e;
+  background: #e0bd6e;
+  color: #1c1915;
+  font-weight: 600;
+}
+
+.chip span {
+  display: inline-block;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: 999px;
+  color: #b8ad9f;
+  font-size: 0.85rem;
+}
+
+.chip small,
+.toggle small {
+  margin-left: 0.15rem;
+  opacity: 0.7;
+}
+
+.chip input:checked + span {
+  border-color: #e0bd6e;
+  background: rgb(224 189 110 / 0.16);
+  color: #f3efe8;
+}
+
+.segment input:focus-visible + span,
+.chip input:focus-visible + span,
+.toggle input:focus-visible + span {
+  outline: 2px solid #f3efe8;
+  outline-offset: 2px;
+}
+
+.field__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #d6cfc4;
+  font-size: 0.9rem;
+}
+
+.select select {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 8px;
+  background: #2b2724;
+  color: #f3efe8;
+  font: inherit;
+}
+
+/* Interruttore: una casella che diventa dorata con il segno di spunta. */
+.toggle span {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.toggle span::before {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 4px;
+  color: #1c1915;
+  font-size: 0.8rem;
+  font-weight: 700;
+  content: '';
+}
+
+.toggle input:checked + span::before {
+  border-color: #e0bd6e;
+  background: #e0bd6e;
+  content: '✓';
+}
+
+.start__summary {
+  margin: 0.2rem 0 -0.2rem;
+  color: #ead6a4;
+  font-size: 0.95rem;
+}
+
+.start__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e0bd6e;
+  font: inherit;
+  font-size: 0.85rem;
+  letter-spacing: normal;
+  text-decoration: underline;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.start__guide .start__link {
+  display: block;
+  margin: 0.9rem auto 0;
+}
+
 /* Telefono in orizzontale: istruzioni su due colonne, così entra tutto senza scorrere. */
 @media (max-height: 500px) and (min-width: 600px) {
   .start__panel {
@@ -335,6 +502,25 @@ body {
   border-radius: 10px;
   background: #1c1a17;
   box-shadow: 0 2px 10px rgb(0 0 0 / 0.3);
+}
+
+.minimap-caption {
+  max-width: 7.5rem;
+  margin: -0.15rem 0 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  background: #1c1a17;
+  color: #f3efe8;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  text-align: center;
+}
+
+@media (max-width: 600px), (max-height: 500px) {
+  .minimap-caption {
+    max-width: 72px;
+    font-size: 0.65rem;
+  }
 }
 
 .help-button {

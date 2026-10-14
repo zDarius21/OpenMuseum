@@ -1,6 +1,6 @@
 import { defineArrayMember, defineField, defineType } from 'sanity';
 
-/** Le pareti della sala: i valori devono restare uguali a WALL_IDS in src/scene/Room.ts. */
+/** Le pareti della vecchia sala unica, per il campo nascosto "wall". */
 const WALLS = [
   { title: 'Nord', value: 'nord' },
   { title: 'Sud', value: 'sud' },
@@ -64,7 +64,7 @@ export const artwork = defineType({
   type: 'document',
   fieldsets: [
     { name: 'card', title: "Scheda dell'opera" },
-    { name: 'layout', title: 'Allestimento nella sala' },
+    { name: 'layout', title: 'Misure' },
   ],
   fields: [
     defineField({ name: 'title', title: 'Titolo', type: 'string', fieldset: 'card', validation: (rule) => rule.required() }),
@@ -78,8 +78,20 @@ export const artwork = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({ name: 'author', title: 'Autore', type: 'string', fieldset: 'card' }),
-    defineField({ name: 'year', title: 'Anno', description: 'Per esempio "1599 circa" o "1594-1595".', type: 'string', fieldset: 'card' }),
-    defineField({ name: 'location', title: 'Dove è conservata', type: 'string', fieldset: 'card' }),
+    defineField({
+      name: 'year',
+      title: 'Anno',
+      description: 'Per esempio "1599 circa" o "1594-1595". Il primo anno serve a ordinare le opere e per il filtro del periodo.',
+      type: 'string',
+      fieldset: 'card',
+    }),
+    defineField({
+      name: 'location',
+      title: 'Dove è conservata',
+      description: 'Museo e città separati da una virgola, per esempio "Galleria Borghese, Roma": la città serve per il filtro e per le sale per città.',
+      type: 'string',
+      fieldset: 'card',
+    }),
     defineField({
       name: 'description',
       title: 'Descrizione',
@@ -111,30 +123,18 @@ export const artwork = defineType({
       validation: (rule) => rule.required().positive(),
     }),
     defineField({ name: 'height', title: 'Altezza (m)', type: 'number', fieldset: 'layout', validation: (rule) => rule.required().positive() }),
+    // Non più usati: le sale si generano dai filtri e le opere si dispongono da sole. Restano nascosti
+    // per non perdere i valori già inseriti con la sala unica.
     defineField({
       name: 'wall',
       title: 'Parete',
       type: 'string',
       fieldset: 'layout',
       options: { list: WALLS, layout: 'radio', direction: 'horizontal' },
-      validation: (rule) => rule.required(),
+      hidden: true,
     }),
-    defineField({
-      name: 'position',
-      title: 'Posizione sulla parete (m)',
-      description: 'Spostamento dal centro della parete: positivo verso destra guardando la parete.',
-      type: 'number',
-      fieldset: 'layout',
-      validation: (rule) => rule.required(),
-    }),
-    defineField({
-      name: 'centerHeight',
-      title: 'Altezza del centro da terra (m)',
-      description: "Se manca si usa l'altezza standard del museo.",
-      type: 'number',
-      fieldset: 'layout',
-      validation: (rule) => rule.positive(),
-    }),
+    defineField({ name: 'position', title: 'Posizione sulla parete (m)', type: 'number', fieldset: 'layout', hidden: true }),
+    defineField({ name: 'centerHeight', title: 'Altezza del centro da terra (m)', type: 'number', fieldset: 'layout', hidden: true }),
     defineField({
       name: 'tour',
       title: 'Visita guidata',

@@ -1,5 +1,3 @@
-import { WALL_IDS, type WallId } from '../scene/Room';
-
 /** Una tappa della visita guidata: un dettaglio del quadro su cui la camera si avvicina. */
 export interface TourStop {
   /** Centro del dettaglio sull'immagine, da 0 a 1 partendo dall'angolo in alto a sinistra. */
@@ -28,11 +26,6 @@ export interface Artwork {
   /** Dimensioni reali della tela in metri, cornice esclusa. */
   width: number;
   height: number;
-  wall: WallId;
-  /** Spostamento dal centro della parete in metri: positivo verso destra guardando la parete. */
-  position: number;
-  /** Altezza da terra del centro del quadro, in metri. */
-  centerHeight?: number;
   /** Pagina da cui proviene l'immagine, per esempio su Wikimedia Commons. */
   source?: string;
   /** Tappe della visita guidata, nell'ordine in cui vengono presentate. */
@@ -80,10 +73,10 @@ function queryUrl({ projectId, dataset, apiVersion, maxImageSize }: ArtworkSourc
   // fit=max riduce solo le immagini più grandi di maxImageSize, senza mai ingrandirle;
   // auto=format le converte in WebP o AVIF se il browser li supporta.
   const imageParams = `?fit=max&w=${maxImageSize}&h=${maxImageSize}&auto=format`;
-  const query = `*[_type == "artwork"] | order(wall, position) {
+  const query = `*[_type == "artwork"] | order(title) {
     "id": slug.current, title, author, year, location, description,
     "image": image.asset->url + "${imageParams}",
-    width, height, wall, position, centerHeight, source,
+    width, height, source,
     "tour": tour[] { x, y, zoom, radius, text }
   }`;
   // apicdn risponde da una cache vicina al visitatore, che Sanity aggiorna quando si pubblica dallo Studio.
@@ -108,10 +101,7 @@ function findProblem(entry: unknown, usedIds: ReadonlySet<string>): string | nul
   if (!isText(fields.id)) return 'manca "id"';
   if (usedIds.has(fields.id)) return `l'id "${fields.id}" è già usato da un'altra opera`;
   if (!isText(fields.title)) return 'manca "title"';
-  if (!WALL_IDS.includes(fields.wall as WallId)) return `"wall" deve essere uno tra: ${WALL_IDS.join(', ')}`;
-  if (typeof fields.position !== 'number') return '"position" deve essere un numero (metri dal centro della parete)';
   if (!isPositive(fields.width) || !isPositive(fields.height)) return '"width" e "height" devono essere numeri positivi (metri)';
-  if (fields.centerHeight !== undefined && !isPositive(fields.centerHeight)) return '"centerHeight" deve essere un numero positivo (metri)';
   for (const key of ['author', 'location', 'description', 'image', 'source']) {
     if (fields[key] !== undefined && typeof fields[key] !== 'string') return `"${key}" deve essere un testo`;
   }

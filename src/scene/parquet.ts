@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { seededRandom } from '../utils/random';
+import { createTextureCanvas } from '../utils/textureCanvas';
 
 /** Lato in metri della porzione di pavimento coperta da una ripetizione della texture. */
 export const PARQUET_TILE_SIZE = 2;
@@ -13,10 +14,7 @@ const GAP = 2;
  * Le doghe corrono lungo l'asse verticale dell'immagine, cioè lungo la profondità della sala.
  */
 export function createParquetTexture(maxAnisotropy: number): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = SIZE;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D non disponibile');
+  const ctx = createTextureCanvas(SIZE, SIZE);
 
   const random = seededRandom(7);
   const plankWidth = SIZE / COLUMNS;
@@ -49,7 +47,7 @@ export function createParquetTexture(maxAnisotropy: number): THREE.CanvasTexture
     }
   }
 
-  const texture = new THREE.CanvasTexture(canvas);
+  const texture = new THREE.CanvasTexture(ctx.canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   // Tiene nitido il pavimento anche guardandolo di sbieco.

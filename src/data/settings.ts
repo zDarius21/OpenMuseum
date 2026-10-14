@@ -3,13 +3,29 @@
  * Unità di misura nella scena: 1 = 1 metro.
  */
 export const settings = {
-  room: {
-    /** Larghezza, lungo l'asse X. */
-    width: 16,
-    /** Profondità, lungo l'asse Z. */
-    depth: 32,
+  /** Le sale si generano dai filtri scelti all'inizio, una dopo l'altra verso nord, collegate da porte. */
+  rooms: {
+    /** Larghezza, lungo l'asse X: le opere stanno sulle due pareti lunghe, est e ovest. */
+    width: 10,
+    /** Profondità minima: le sale con opere grandi si allungano da sole. */
+    minDepth: 9,
     height: 4.5,
     wallThickness: 0.2,
+    /** Spazio minimo tra due opere (targhetta compresa) e tra un'opera e le pareti di fondo. */
+    minGap: 0.9,
+    door: { width: 2.2, height: 3.2 },
+    /** Quante sale costruire (pareti, cornici, targhette) prima e dopo quella in cui ci si trova. */
+    buildRadius: 2,
+    /** Quante sale, prima e dopo quella in cui ci si trova, hanno le immagini caricate. */
+    imageRadius: 1,
+  },
+  /** Scelte del menu iniziale. */
+  visit: {
+    /** Quante opere per sala si possono scegliere; la più alta è anche il numero di faretti. */
+    perRoomOptions: [4, 6, 8],
+    defaultPerRoom: 6,
+    /** Raggruppando per città, quelle con meno opere di così finiscono insieme in «Altre città». */
+    minCityRoom: 3,
   },
   barriers: {
     /** Distanza delle transenne dalle pareti. */
@@ -25,15 +41,14 @@ export const settings = {
   lights: {
     /** Luce diffusa che rende leggibili anche le zone lontane dai faretti. */
     ambientIntensity: 3.2,
-    /** Faretti a soffitto disposti a griglia: colonne (lungo X) × file (lungo Z); 0 per nessuno. */
-    spotColumns: 0,
-    spotRows: 0,
-    /** Intensità di ogni faretto, in candele. */
-    spotIntensity: 60,
+    /** Durata in secondi dell'accensione dei faretti quando si entra in una sala. */
+    fadeDuration: 0.6,
   },
   artworks: {
-    /** Altezza da terra del centro dei quadri che non la indicano. */
+    /** Altezza da terra del centro dei quadri; quelli alti vengono alzati quanto basta. */
     defaultCenterHeight: 1.55,
+    /** Distanza minima da terra del bordo inferiore della cornice. */
+    minBottom: 0.45,
     /** Quanta luce porta il faretto di ogni quadro: la potenza si adatta da sola alla distanza. */
     spotStrength: 6,
   },

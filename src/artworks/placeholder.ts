@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { hashString, seededRandom } from '../utils/random';
+import { createTextureCanvas } from '../utils/textureCanvas';
 import type { Artwork } from './artworksData';
 
 const LONG_SIDE = 512;
@@ -22,11 +23,7 @@ export function createPlaceholderTexture(artwork: Artwork, maxAnisotropy: number
   const width = aspect >= 1 ? LONG_SIDE : Math.round(LONG_SIDE * aspect);
   const height = aspect >= 1 ? Math.round(LONG_SIDE / aspect) : LONG_SIDE;
 
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D non disponibile');
+  const ctx = createTextureCanvas(width, height);
 
   const random = seededRandom(hashString(artwork.id));
   const palette = PALETTES[Math.floor(random() * PALETTES.length)];
@@ -61,7 +58,7 @@ export function createPlaceholderTexture(artwork: Artwork, maxAnisotropy: number
     ctx.fill();
   });
 
-  const texture = new THREE.CanvasTexture(canvas);
+  const texture = new THREE.CanvasTexture(ctx.canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = maxAnisotropy;
   return texture;

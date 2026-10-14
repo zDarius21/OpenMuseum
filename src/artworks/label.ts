@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createTextureCanvas } from '../utils/textureCanvas';
 import type { Artwork } from './artworksData';
 
 /** Larghezza della targhetta in metri: più grande di quelle vere, per essere leggibile dallo schermo. */
@@ -22,6 +23,8 @@ const SERIF = "Georgia, 'Times New Roman', serif";
 const SANS = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
 
 const edgeMaterial = new THREE.MeshStandardMaterial({ color: BACKGROUND, roughness: 0.9 });
+// Uguale per tutte le targhette: non va liberato quando un quadro viene smontato.
+edgeMaterial.userData.shared = true;
 
 /**
  * Targhetta con autore, titolo e anno dell'opera: una lastrina appoggiata al muro.
@@ -47,11 +50,7 @@ export function createLabel(artwork: Artwork, maxAnisotropy: number): THREE.Mesh
 }
 
 function drawLabel(artwork: Artwork): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = CANVAS_WIDTH;
-  canvas.height = CANVAS_HEIGHT;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D non disponibile');
+  const ctx = createTextureCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
 
   ctx.fillStyle = BACKGROUND;
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -100,7 +99,7 @@ function drawLabel(artwork: Artwork): HTMLCanvasElement {
     }
     y += line.height;
   }
-  return canvas;
+  return ctx.canvas;
 }
 
 /** Divide il testo in righe che stanno in `maxWidth` con il font indicato. */

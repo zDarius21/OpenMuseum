@@ -64,7 +64,8 @@ export class GuidedTour {
   private readonly options: TourOptions;
   private readonly panel: TourPanel;
   private readonly narrator = new Narrator('it-IT');
-  private readonly highlights = new Map<THREE.Object3D, Highlight>();
+  // WeakMap: quando una sala viene smontata, le evidenziazioni dei suoi quadri se ne vanno con loro.
+  private readonly highlights = new WeakMap<THREE.Object3D, Highlight>();
   private artworks: THREE.Object3D | null = null;
   private active: ActiveTour | null = null;
   /** Aumenta a ogni cambio di tappa, pausa o uscita: le attese ancora in corso capiscono di essere superate. */

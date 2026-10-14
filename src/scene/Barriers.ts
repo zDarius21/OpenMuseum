@@ -18,6 +18,8 @@ export interface Barriers {
   readonly group: THREE.Group;
   /** Volumi lungo la linea dei paletti, che il visitatore non può attraversare. */
   readonly colliders: THREE.Box3[];
+  /** Libera la memoria della scheda grafica quando le transenne non servono più. */
+  dispose(): void;
 }
 
 const BRASS_COLOR = 0xc9a24f;
@@ -34,11 +36,15 @@ const ROPE_DROP = 0.08;
 /** Spessore dei volumi di collisione attorno alla linea dei paletti. */
 const COLLIDER_THICKNESS = 0.1;
 
+/** Materiali e forma del paletto, uguali in tutte le sale: si creano una volta sola. */
+let shared: { brass: THREE.Material; velvet: THREE.Material; post: THREE.BufferGeometry; postHeight: number } | null = null;
+
 /**
- * Transenne da museo, paletti in ottone e cordoni di velluto, lungo un percorso chiuso.
- * I lati del percorso devono essere paralleli agli assi X o Z, perché le collisioni usano box allineati.
+ * Transenne da museo, paletti in ottone e cordoni di velluto, lungo una o più linee spezzate aperte
+ * (per chiuderne una basta ripetere il primo punto alla fine).
+ * I lati devono essere paralleli agli assi X o Z, perché le collisioni usano box allineati.
  */
-export function createBarriers(path: readonly FloorPoint[], config: BarrierConfig, reflections: THREE.Texture): Barriers {
+export function createBarriers(lines: readonly (readonly FloorPoint[])[], config: BarrierConfig, reflections: THREE.Texture): Barriers {
   const group = new THREE.Group();
   group.name = 'barriers';
   const colliders: THREE.Box3[] = [];
@@ -47,42 +53,63 @@ export function createBarriers(path: readonly FloorPoint[], config: BarrierConfi
   const ropeHeight = config.postHeight - ROPE_DROP;
   const half = COLLIDER_THICKNESS / 2;
 
-  path.forEach((start, index) => {
-    const end = path[(index + 1) % path.length];
-    // Paletti equidistanti, con una distanza mai superiore a postSpacing.
-    const spans = Math.max(1, Math.ceil(Math.hypot(end.x - start.x, end.z - start.z) / config.postSpacing));
-    for (let span = 0; span < spans; span++) {
-      const a = lerpPoint(start, end, span / spans);
-      const b = lerpPoint(start, end, (span + 1) / spans);
-      posts.push(a);
-      ropes.push(createRopeGeometry(a, b, ropeHeight, config.ropeSag));
-    }
+  for (const line of lines) {
+    line.forEach((start, index) => {
+      const end = line[index + 1];
+      if (!end) {
+        posts.push(start);
+        return;
+      }
+      // Paletti equidistanti, con una distanza mai superiore a postSpacing.
+      const spans = Math.max(1, Math.ceil(Math.hypot(end.x - start.x, end.z - start.z) / config.postSpacing));
+      for (let span = 0; span < spans; span++) {
+        const a = lerpPoint(start, end, span / spans);
+        const b = lerpPoint(start, end, (span + 1) / spans);
+        posts.push(a);
+        ropes.push(createRopeGeometry(a, b, ropeHeight, config.ropeSag));
+      }
 
-    colliders.push(
-      new THREE.Box3(
-        new THREE.Vector3(Math.min(start.x, end.x) - half, 0, Math.min(start.z, end.z) - half),
-        new THREE.Vector3(Math.max(start.x, end.x) + half, config.postHeight, Math.max(start.z, end.z) + half),
-      ),
-    );
-  });
+      colliders.push(
+        new THREE.Box3(
+          new THREE.Vector3(Math.min(start.x, end.x) - half, 0, Math.min(start.z, end.z) - half),
+          new THREE.Vector3(Math.max(start.x, end.x) + half, config.postHeight, Math.max(start.z, end.z) + half),
+        ),
+      );
+    });
+  }
+
+  if (!shared || shared.postHeight !== config.postHeight) {
+    shared = {
+      brass: new THREE.MeshStandardMaterial({ color: BRASS_COLOR, metalness: 1, roughness: 0.3, envMap: reflections }),
+      velvet: new THREE.MeshPhysicalMaterial({
+        color: VELVET_COLOR,
+        roughness: 0.8,
+        sheen: 1,
+        sheenColor: VELVET_SHEEN_COLOR,
+        sheenRoughness: 0.5,
+      }),
+      post: createPostGeometry(config.postHeight, ropeHeight),
+      postHeight: config.postHeight,
+    };
+  }
 
   // Tutti i paletti in un'unica InstancedMesh e tutti i cordoni in un'unica geometria: due sole chiamate di disegno.
-  const brass = new THREE.MeshStandardMaterial({ color: BRASS_COLOR, metalness: 1, roughness: 0.3, envMap: reflections });
-  const postMesh = new THREE.InstancedMesh(createPostGeometry(config.postHeight, ropeHeight), brass, posts.length);
+  const postMesh = new THREE.InstancedMesh(shared.post, shared.brass, posts.length);
   const matrix = new THREE.Matrix4();
   posts.forEach((post, index) => postMesh.setMatrixAt(index, matrix.makeTranslation(post.x, 0, post.z)));
   group.add(postMesh);
 
-  const velvet = new THREE.MeshPhysicalMaterial({
-    color: VELVET_COLOR,
-    roughness: 0.8,
-    sheen: 1,
-    sheenColor: VELVET_SHEEN_COLOR,
-    sheenRoughness: 0.5,
-  });
-  group.add(new THREE.Mesh(merge(ropes), velvet));
+  const ropeMesh = new THREE.Mesh(merge(ropes), shared.velvet);
+  group.add(ropeMesh);
 
-  return { group, colliders };
+  return {
+    group,
+    colliders,
+    dispose: () => {
+      postMesh.dispose();
+      ropeMesh.geometry.dispose();
+    },
+  };
 }
 
 function lerpPoint(a: FloorPoint, b: FloorPoint, t: number): FloorPoint {

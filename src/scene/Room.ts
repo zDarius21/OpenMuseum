@@ -1,24 +1,23 @@
 import * as THREE from 'three';
 import { createBarriers, type BarrierConfig } from './Barriers';
 import { createParquetTexture, PARQUET_TILE_SIZE } from './parquet';
+import { createTextureCanvas } from '../utils/textureCanvas';
 
 export interface RoomConfig {
   width: number;
-  depth: number;
   height: number;
   wallThickness: number;
-}
-
-export interface RoomLightsConfig {
-  ambientIntensity: number;
-  spotColumns: number;
-  spotRows: number;
-  spotIntensity: number;
+  door: { width: number; height: number };
 }
 
 export interface RoomOptions {
-  room: RoomConfig;
-  lights: RoomLightsConfig;
+  config: RoomConfig;
+  depth: number;
+  /** Coordinata z della faccia interna della parete sud: la sala si estende da qui verso nord (z decrescente). */
+  south: number;
+  doors: { south: boolean; north: boolean };
+  /** Cartelli sopra le porte, visti dall'interno della sala: per esempio «Sala 3 · Roma ›». */
+  signs: { south?: string; north?: string };
   barriers: BarrierConfig;
   maxAnisotropy: number;
   /** Riflessi per i materiali metallici. */
@@ -44,114 +43,188 @@ export interface Room {
   readonly colliders: THREE.Box3[];
   readonly walls: Record<WallId, Wall>;
   readonly height: number;
+  /** Facce interne delle pareti sud e nord, lungo z. */
+  readonly south: number;
+  readonly north: number;
+  /** Libera la memoria della scheda grafica quando la sala viene smontata. */
+  dispose(): void;
 }
 
 const WALL_COLOR = 0xf3f0ea;
 const CEILING_COLOR = 0xf7f6f2;
 const BASEBOARD_COLOR = 0x4a443e;
+const THRESHOLD_COLOR = 0xd8d2c8;
 const BASEBOARD_HEIGHT = 0.12;
 const BASEBOARD_DEPTH = 0.015;
-/** Bianco caldo, intorno ai 3500 K. */
-const SPOT_COLOR = 0xfff1e0;
+/** Larghezza e sporgenza dello stipite intorno alle porte. */
+const CASING_WIDTH = 0.08;
+const CASING_DEPTH = 0.02;
+/** Lo stipite entra un poco nel vano della porta: se combaciasse con il muro, le due facce sfarfallerebbero. */
+const CASING_INSET = 0.01;
+/** I paletti alle estremità stanno a questa distanza dalle pareti di fondo: troppo poco per passarci dietro. */
+const BARRIER_END_GAP = 0.15;
+const SIGN_WIDTH = 2.4;
+const SIGN_HEIGHT = 0.42;
+const SIGN_BACKGROUND = '#2b2724';
+const SIGN_TEXT = '#f4efe6';
 
-/** Crea una sala rettangolare centrata nell'origine, con il pavimento a quota 0. */
-export function createRoom({ room: config, lights, barriers: barrierConfig, maxAnisotropy, reflections }: RoomOptions): Room {
-  const { width, depth, height, wallThickness } = config;
-  const halfWidth = width / 2;
-  const halfDepth = depth / 2;
+// Pareti, soffitti, battiscopa e stipiti sono box e piani di misura 1, scalati: la forma è la stessa per tutte le sale.
+const unitBox = new THREE.BoxGeometry(1, 1, 1);
+const unitPlane = new THREE.PlaneGeometry(1, 1);
+let materials: ReturnType<typeof createMaterials> | null = null;
+
+function createMaterials(maxAnisotropy: number) {
+  return {
+    wall: new THREE.MeshStandardMaterial({ color: WALL_COLOR, roughness: 0.95 }),
+    ceiling: new THREE.MeshStandardMaterial({ color: CEILING_COLOR, roughness: 1 }),
+    baseboard: new THREE.MeshStandardMaterial({ color: BASEBOARD_COLOR, roughness: 0.7 }),
+    threshold: new THREE.MeshStandardMaterial({ color: THRESHOLD_COLOR, roughness: 0.4 }),
+    floor: new THREE.MeshStandardMaterial({ map: createParquetTexture(maxAnisotropy), roughness: 0.6 }),
+  };
+}
+
+/**
+ * Crea una sala rettangolare centrata sull'asse z, con il pavimento a quota 0, che va da `south` verso nord.
+ * Le sale si mettono una dopo l'altra: la parete nord di una e la parete sud della successiva coincidono,
+ * con la porta nello stesso punto, e ogni sala costruisce entrambe per restare chiusa anche da sola.
+ */
+export function createRoom(options: RoomOptions): Room {
+  const { width, height, wallThickness: thickness, door } = options.config;
+  const { depth, south, maxAnisotropy } = options;
+  const north = south - depth;
+  const middle = (south + north) / 2;
+  const half = width / 2;
+  materials ??= createMaterials(maxAnisotropy);
+  const shared = materials;
 
   const group = new THREE.Group();
   group.name = 'room';
   const colliders: THREE.Box3[] = [];
+  const disposables: { dispose(): void }[] = [];
 
-  const parquet = createParquetTexture(maxAnisotropy);
-  parquet.repeat.set(width / PARQUET_TILE_SIZE, depth / PARQUET_TILE_SIZE);
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, depth).rotateX(-Math.PI / 2),
-    new THREE.MeshStandardMaterial({ map: parquet, roughness: 0.6 }),
-  );
-  group.add(floor);
-
-  const ceiling = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, depth).rotateX(Math.PI / 2),
-    new THREE.MeshStandardMaterial({ color: CEILING_COLOR, roughness: 1 }),
-  );
-  ceiling.position.y = height;
-  group.add(ceiling);
-
-  // Le pareti sono parallelepipedi pieni: gli stessi volumi servono per le collisioni.
-  const wallMaterial = new THREE.MeshStandardMaterial({ color: WALL_COLOR, roughness: 0.95 });
-  const baseboardMaterial = new THREE.MeshStandardMaterial({ color: BASEBOARD_COLOR, roughness: 0.7 });
-
-  const addBox = (material: THREE.Material, center: THREE.Vector3, size: THREE.Vector3): void => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z), material);
-    mesh.position.copy(center);
+  const addBox = (material: THREE.Material, x: number, y: number, z: number, size: THREE.Vector3Tuple, solid = false): void => {
+    const mesh = new THREE.Mesh(unitBox, material);
+    mesh.position.set(x, y, z);
+    mesh.scale.set(...size);
     group.add(mesh);
+    if (solid) colliders.push(new THREE.Box3().setFromCenterAndSize(mesh.position, mesh.scale));
   };
 
-  const outerWidth = width + 2 * wallThickness;
-  const wallBoxes = [
-    { center: new THREE.Vector3(0, height / 2, -halfDepth - wallThickness / 2), size: new THREE.Vector3(outerWidth, height, wallThickness) },
-    { center: new THREE.Vector3(0, height / 2, halfDepth + wallThickness / 2), size: new THREE.Vector3(outerWidth, height, wallThickness) },
-    { center: new THREE.Vector3(halfWidth + wallThickness / 2, height / 2, 0), size: new THREE.Vector3(wallThickness, height, depth) },
-    { center: new THREE.Vector3(-halfWidth - wallThickness / 2, height / 2, 0), size: new THREE.Vector3(wallThickness, height, depth) },
-  ];
-  for (const { center, size } of wallBoxes) {
-    addBox(wallMaterial, center, size);
-    colliders.push(new THREE.Box3().setFromCenterAndSize(center, size));
+  // Pavimento: le coordinate della texture seguono i metri, così lo stesso parquet va bene per sale di ogni misura.
+  const floorGeometry = new THREE.PlaneGeometry(width, depth).rotateX(-Math.PI / 2);
+  const uv = floorGeometry.getAttribute('uv');
+  for (let index = 0; index < uv.count; index++) {
+    uv.setXY(index, (uv.getX(index) * width) / PARQUET_TILE_SIZE, (uv.getY(index) * depth) / PARQUET_TILE_SIZE);
+  }
+  disposables.push(floorGeometry);
+  const floor = new THREE.Mesh(floorGeometry, shared.floor);
+  floor.position.z = middle;
+  group.add(floor);
+
+  const ceiling = new THREE.Mesh(unitPlane, shared.ceiling);
+  ceiling.rotation.x = Math.PI / 2;
+  ceiling.scale.set(width, depth, 1);
+  ceiling.position.set(0, height, middle);
+  group.add(ceiling);
+
+  // Pareti lunghe, che coprono anche gli angoli, con il battiscopa.
+  for (const side of [-1, 1]) {
+    addBox(shared.wall, side * (half + thickness / 2), height / 2, middle, [thickness, height, depth + 2 * thickness], true);
+    addBox(shared.baseboard, side * (half - BASEBOARD_DEPTH / 2), BASEBOARD_HEIGHT / 2, middle, [BASEBOARD_DEPTH, BASEBOARD_HEIGHT, depth]);
   }
 
-  // Battiscopa lungo il lato interno di ogni parete.
-  const baseboardY = BASEBOARD_HEIGHT / 2;
-  const baseboardInset = BASEBOARD_DEPTH / 2;
-  addBox(baseboardMaterial, new THREE.Vector3(0, baseboardY, -halfDepth + baseboardInset), new THREE.Vector3(width, BASEBOARD_HEIGHT, BASEBOARD_DEPTH));
-  addBox(baseboardMaterial, new THREE.Vector3(0, baseboardY, halfDepth - baseboardInset), new THREE.Vector3(width, BASEBOARD_HEIGHT, BASEBOARD_DEPTH));
-  addBox(baseboardMaterial, new THREE.Vector3(halfWidth - baseboardInset, baseboardY, 0), new THREE.Vector3(BASEBOARD_DEPTH, BASEBOARD_HEIGHT, depth));
-  addBox(baseboardMaterial, new THREE.Vector3(-halfWidth + baseboardInset, baseboardY, 0), new THREE.Vector3(BASEBOARD_DEPTH, BASEBOARD_HEIGHT, depth));
+  // Pareti di fondo, con la porta al centro se c'è. `inward` è il verso della sala visto dalla parete.
+  const endWall = (face: number, inward: number, hasDoor: boolean): void => {
+    const z = face - (inward * thickness) / 2;
+    const baseboardZ = face + (inward * BASEBOARD_DEPTH) / 2;
+    if (!hasDoor) {
+      addBox(shared.wall, 0, height / 2, z, [width, height, thickness], true);
+      addBox(shared.baseboard, 0, BASEBOARD_HEIGHT / 2, baseboardZ, [width, BASEBOARD_HEIGHT, BASEBOARD_DEPTH]);
+      return;
+    }
+    const sideWidth = (width - door.width) / 2;
+    const baseboardWidth = sideWidth - CASING_WIDTH;
+    for (const side of [-1, 1]) {
+      addBox(shared.wall, side * (door.width / 2 + sideWidth / 2), height / 2, z, [sideWidth, height, thickness], true);
+      addBox(shared.baseboard, side * (half - baseboardWidth / 2), BASEBOARD_HEIGHT / 2, baseboardZ, [baseboardWidth, BASEBOARD_HEIGHT, BASEBOARD_DEPTH]);
+      // Stipite, che sporge un poco su entrambe le facce del muro.
+      addBox(shared.baseboard, side * (door.width / 2 + CASING_WIDTH / 2 - CASING_INSET), door.height / 2, z, [CASING_WIDTH, door.height, thickness + 2 * CASING_DEPTH]);
+    }
+    addBox(shared.wall, 0, (door.height + height) / 2, z, [door.width, height - door.height, thickness]);
+    addBox(shared.baseboard, 0, door.height + CASING_WIDTH / 2 - CASING_INSET, z, [door.width + 2 * CASING_WIDTH, CASING_WIDTH, thickness + 2 * CASING_DEPTH]);
+    addBox(shared.threshold, 0, 0.004, z, [door.width, 0.008, thickness]);
+  };
+  endWall(south, -1, options.doors.south);
+  endWall(north, 1, options.doors.north);
 
-  // Transenne lungo tutto il perimetro: tengono i visitatori a distanza dalle pareti.
-  const inset = barrierConfig.distance;
+  // Cartelli sopra le porte, sulla faccia interna.
+  const signY = door.height + CASING_WIDTH + 0.12 + SIGN_HEIGHT / 2;
+  for (const [text, face, inward] of [
+    [options.signs.south, south, -1],
+    [options.signs.north, north, 1],
+  ] as const) {
+    if (!text) continue;
+    const sign = createSign(text, maxAnisotropy);
+    sign.position.set(0, signY, face + inward * 0.01);
+    if (inward < 0) sign.rotation.y = Math.PI;
+    group.add(sign);
+    disposables.push(sign.geometry, sign.material as THREE.Material, (sign.material as THREE.MeshStandardMaterial).map!);
+  }
+
+  // Transenne lungo le pareti lunghe, da una parete di fondo all'altra: le porte restano libere.
+  const inset = options.barriers.distance;
   const barriers = createBarriers(
-    [
-      { x: -halfWidth + inset, z: -halfDepth + inset },
-      { x: halfWidth - inset, z: -halfDepth + inset },
-      { x: halfWidth - inset, z: halfDepth - inset },
-      { x: -halfWidth + inset, z: halfDepth - inset },
-    ],
-    barrierConfig,
-    reflections,
+    [-1, 1].map((side) => [
+      { x: side * (half - inset), z: south - BARRIER_END_GAP },
+      { x: side * (half - inset), z: north + BARRIER_END_GAP },
+    ]),
+    options.barriers,
+    options.reflections,
   );
   group.add(barriers.group);
   colliders.push(...barriers.colliders);
-
-  // Luce ambientale: calda dall'alto; dal basso il riflesso chiaro di pavimento e pareti.
-  group.add(new THREE.HemisphereLight(0xfffaf2, 0xd9d3cb, lights.ambientIntensity));
-
-  // Faretti a soffitto con la loro plafoniera visibile.
-  const fixtureGeometry = new THREE.CylinderGeometry(0.14, 0.14, 0.03, 24);
-  const fixtureMaterial = new THREE.MeshBasicMaterial({ color: 0xfff6ea });
-  for (let column = 0; column < lights.spotColumns; column++) {
-    for (let row = 0; row < lights.spotRows; row++) {
-      const x = -halfWidth + (width * (column + 0.5)) / lights.spotColumns;
-      const z = -halfDepth + (depth * (row + 0.5)) / lights.spotRows;
-
-      const spot = new THREE.SpotLight(SPOT_COLOR, lights.spotIntensity, 0, Math.PI / 4.5, 0.8, 2);
-      spot.position.set(x, height - 0.05, z);
-      spot.target.position.set(x, 0, z);
-      group.add(spot, spot.target);
-
-      const fixture = new THREE.Mesh(fixtureGeometry, fixtureMaterial);
-      fixture.position.set(x, height - 0.015, z);
-      group.add(fixture);
-    }
-  }
+  disposables.push(barriers);
 
   const walls: Record<WallId, Wall> = {
-    nord: { center: new THREE.Vector3(0, 0, -halfDepth), normal: new THREE.Vector3(0, 0, 1), right: new THREE.Vector3(1, 0, 0), length: width },
-    sud: { center: new THREE.Vector3(0, 0, halfDepth), normal: new THREE.Vector3(0, 0, -1), right: new THREE.Vector3(-1, 0, 0), length: width },
-    est: { center: new THREE.Vector3(halfWidth, 0, 0), normal: new THREE.Vector3(-1, 0, 0), right: new THREE.Vector3(0, 0, 1), length: depth },
-    ovest: { center: new THREE.Vector3(-halfWidth, 0, 0), normal: new THREE.Vector3(1, 0, 0), right: new THREE.Vector3(0, 0, -1), length: depth },
+    nord: { center: new THREE.Vector3(0, 0, north), normal: new THREE.Vector3(0, 0, 1), right: new THREE.Vector3(1, 0, 0), length: width },
+    sud: { center: new THREE.Vector3(0, 0, south), normal: new THREE.Vector3(0, 0, -1), right: new THREE.Vector3(-1, 0, 0), length: width },
+    est: { center: new THREE.Vector3(half, 0, middle), normal: new THREE.Vector3(-1, 0, 0), right: new THREE.Vector3(0, 0, 1), length: depth },
+    ovest: { center: new THREE.Vector3(-half, 0, middle), normal: new THREE.Vector3(1, 0, 0), right: new THREE.Vector3(0, 0, -1), length: depth },
   };
 
-  return { group, colliders, walls, height };
+  return {
+    group,
+    colliders,
+    walls,
+    height,
+    south,
+    north,
+    dispose: () => {
+      for (const item of disposables) item.dispose();
+    },
+  };
+}
+
+/** Cartello scuro con il testo chiaro, che si rimpicciolisce se il testo è lungo. */
+function createSign(text: string, maxAnisotropy: number): THREE.Mesh {
+  const ctx = createTextureCanvas(1024, Math.round((1024 * SIGN_HEIGHT) / SIGN_WIDTH));
+  const { canvas } = ctx;
+  ctx.fillStyle = SIGN_BACKGROUND;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = SIGN_TEXT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  let size = 72;
+  do {
+    ctx.font = `italic ${size}px Georgia, 'Times New Roman', serif`;
+    size -= 4;
+  } while (ctx.measureText(text).width > canvas.width - 80 && size > 32);
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2, canvas.width - 80);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = maxAnisotropy;
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(SIGN_WIDTH, SIGN_HEIGHT), new THREE.MeshStandardMaterial({ map: texture, roughness: 0.8 }));
+  sign.name = 'sign';
+  return sign;
 }
