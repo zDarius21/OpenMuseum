@@ -1,13 +1,13 @@
 # OpenMuseum – 3D Virtual Museum
 
-A 3D virtual museum you can walk through in the browser, on desktop and mobile. Choose which paintings to see and how to group them, and the museum builds a sequence of small rooms to explore in first person, each painting shown at its real size with a gilded frame, a spotlight and a wall label. Walk up to the rope in front of a painting and click it to start a guided tour: the camera glides in and zooms on its details while a narrator reads the explanation aloud (currently available for *The Calling of Saint Matthew*).
+A 3D virtual museum you can walk through in the browser, on desktop and mobile. Pick the art movements you want to walk through, and the museum builds a sequence of small rooms to explore in first person, each painting shown at its real size with a gilded frame, a spotlight and a wall label. Walk up to the rope in front of a painting and click it to start a guided tour: the camera glides in and zooms on its details while a narrator reads the explanation aloud (currently available for *The Calling of Saint Matthew*).
 
 ## Features
 
-- **Visit builder:** the start menu filters the collection by period, city and guided tours, and groups the paintings into rooms by period or by city, with 4, 6 or 8 works per room; a live summary shows how many works and rooms you'll get. Each room's length adapts to the paintings it holds, which are hung chronologically on the two long walls.
+- **Route builder:** the start page lays out the art movements on a timeline, from the Renaissance to Impressionism; each movement you pick becomes a stop of the route, in historical order, and turns into one room (or more, when it has more works than a room holds). Below the timeline you see the artists and works of the open movement: every painting can be added to or removed from the route on its own, and the artist buttons pick or drop all the works of an artist at once. A search box finds works and artists across all movements: pick single works directly, or an artist to add or remove all of their works, in every movement, at once. A live summary shows how many stops, works and rooms you'll get. Each room's length adapts to the paintings it holds, which are hung chronologically on the two long walls.
 - **Rooms connected by doors:** walk from one room to the next; a sign above each door names the room beyond it, and a banner announces the room you enter.
-- **Progressive loading:** only the rooms around the visitor are built, and only the current and adjacent rooms download their images; farther rooms are taken down and their textures freed. A fixed pool of eight spotlights follows the visitor from room to room, so the lighting cost stays that of a single room and no shaders are recompiled.
-- **Welcome screen:** after the menu, shows how to move, look around and start a tour, with instructions tailored to desktop or touch screens and a progress bar while the first room loads. The `?` button opens it again at any time, and lets you change the filters and rebuild the museum.
+- **Progressive loading:** only the rooms around the visitor are built, and only the current and adjacent rooms download their images; farther rooms are taken down and their textures freed. A fixed pool of spotlights, one per painting a room can hold, follows the visitor from room to room, so the lighting cost stays that of a single room and no shaders are recompiled.
+- **Welcome screen:** after the route page, shows how to move, look around and start a tour, with instructions tailored to desktop or touch screens and a progress bar while the first room loads. The `?` button opens it again at any time, and lets you change the route and rebuild the museum.
 - **Artwork info card:** standing at the rope in front of a painting and looking at it opens a card with its author, title, date, size, location and a short description, plus a button to start its guided tour or, for paintings without one, the close-up view (`Enter` on desktop).
 - **Close-up view:** standing at the rope, clicking or tapping a painting without a guided tour fills the screen with it, centered, with its info card on top (the `i` button hides it). Zoom toward any point with the mouse wheel, a pinch or a double click, drag to explore the details, and press `Esc` or the close button to step back to where you were.
 - **Minimap:** a top-down map of the current room, with its doors, shows where you are and which way you are looking, with the painting whose card is open highlighted and the room's name below.
@@ -62,7 +62,7 @@ The artworks are read from the Sanity project configured in the `sanity` section
 
 ## Settings
 
-Room size, how many rooms are built and loaded around the visitor, the menu options, barriers, lighting, movement speed, field of view, guided tour timing and the Sanity project (`projectId`, `dataset`) can be changed in [`src/data/settings.ts`](src/data/settings.ts) without touching the rest of the code.
+Room size, how many rooms are built and loaded around the visitor, the number of works per room, barriers, lighting, movement speed, field of view, guided tour timing and the Sanity project (`projectId`, `dataset`) can be changed in [`src/data/settings.ts`](src/data/settings.ts) without touching the rest of the code.
 
 ## Managing artworks
 
@@ -82,9 +82,11 @@ Open <http://localhost:3333> and sign in with a Sanity account that has access t
 | Identificativo        | yes      | Unique short name, generated from the title |
 | Larghezza, Altezza    | yes      | Real canvas size in meters, frame excluded |
 | Immagine              | no       | The painting; if missing or not loadable, a placeholder is used |
-| Anno                  | no       | Date, for example "1599 circa": its first year orders the paintings and drives the period filter |
-| Dove è conservata     | no       | Museum and city separated by a comma, for example "Galleria Borghese, Roma": the city drives the city filter and the rooms by city |
-| Autore, Fonte dell'immagine | no | Author, and the page the image comes from |
+| Corrente              | yes      | Art movement: the stop of the route, and the rooms, the work belongs to. The list lives in [`src/data/movements.ts`](src/data/movements.ts) (with each movement's color) and in the Studio schema |
+| Autore                | no       | Author; the start page lets visitors pick artists one by one, so spell each name the same way |
+| Anno                  | no       | Date, for example "1599 circa": its first year orders the paintings within the rooms |
+| Dove è conservata     | no       | Museum and city, for example "Galleria Borghese, Roma" |
+| Fonte dell'immagine   | no       | The page the image comes from |
 | Descrizione           | no       | Two or three sentences about the work, shown in its info card |
 
 ### Guided tour
@@ -126,12 +128,12 @@ src/
 ├─ style.css      Global styles
 ├─ scene/         Renderer, camera, render loop, room with doors, barriers
 ├─ controls/      First-person movement: keyboard, mouse, touch joystick, collisions
-├─ rooms/         Visit filters, grouping into rooms, room layout, progressive building and loading, spotlight pool
+├─ rooms/         Route planning by art movement, room layout, progressive building and loading, spotlight pool
 ├─ artworks/      Artwork loading and validation, frames, labels, tour badges and click picking
 ├─ tour/          Guided tour: camera animation, detail highlight, narration
 ├─ viewer/        Close-up view: framing, zoom and pan
-├─ ui/            On-screen interface: start menu, minimap, artwork card, crosshair, tour and close-up panels
-├─ data/          Museum settings
+├─ ui/            On-screen interface: start page, minimap, artwork card, crosshair, tour and close-up panels
+├─ data/          Museum settings and the list of art movements
 └─ utils/         Helper functions
 studio/           Sanity Studio: the schema of the artworks and the editing interface
 ```
@@ -189,3 +191,81 @@ The artwork images are reproductions of public domain paintings from [Wikimedia 
 | Caravaggio, *David with the Head of Goliath* (c. 1609–1610) | Galleria Borghese, Rome | [Commons](https://commons.wikimedia.org/wiki/File:David_with_the_Head_of_Goliath-Caravaggio_(1610).jpg) |
 | Caravaggio, *The Denial of Saint Peter* (1610) | Metropolitan Museum of Art, New York | [Commons](https://commons.wikimedia.org/wiki/File:The_Denial_of_Saint_Peter_MET_DP-12413-001.jpg) |
 | Caravaggio, *The Martyrdom of Saint Ursula* (1610) | Gallerie d'Italia, Naples | [Commons](https://commons.wikimedia.org/wiki/File:The_Martyrdom_of_Saint_Ursula-Caravaggio_(1610).jpg) |
+| Sandro Botticelli, *The Birth of Venus* (c. 1485) | Uffizi Gallery, Florence | [Commons](https://commons.wikimedia.org/wiki/File:Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited.jpg) |
+| Sandro Botticelli, *Primavera* (c. 1480) | Uffizi Gallery, Florence | [Commons](https://commons.wikimedia.org/wiki/File:Sandro_Botticelli_-_La_Primavera_-_Google_Art_Project.jpg) |
+| Leonardo da Vinci, *Mona Lisa* (1503–1519) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Mona_Lisa,_by_Leonardo_da_Vinci,_from_C2RMF_retouched.jpg) |
+| Leonardo da Vinci, *Annunciation* (c. 1472–1475) | Uffizi Gallery, Florence | [Commons](https://commons.wikimedia.org/wiki/File:Annunciation_%28Leonardo%29_%28cropped%29.jpg) |
+| Raphael, *The Marriage of the Virgin* (1504) | Pinacoteca di Brera, Milan | [Commons](https://commons.wikimedia.org/wiki/File:Raffaello_-_Spozalizio_-_Web_Gallery_of_Art.jpg) |
+| Titian, *Venus of Urbino* (1538) | Uffizi Gallery, Florence | [Commons](https://commons.wikimedia.org/wiki/File:Tiziano%27s_Venere_di_Urbino_%28from_The_History_BLog%29.jpg) |
+| Giorgione, *The Tempest* (c. 1505) | Gallerie dell'Accademia, Venice | [Commons](https://commons.wikimedia.org/wiki/File:Giorgione_-_Das_Gewitter.jpg) |
+| Andrea Mantegna, *Lamentation of Christ* (c. 1480) | Pinacoteca di Brera, Milan | [Commons](https://commons.wikimedia.org/wiki/File:Lamentaci%C3%B3n_sobre_Cristo_muerto,_por_Andrea_Mantegna.jpg) |
+| Jan van Eyck, *Arnolfini Portrait* (1434) | National Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:Van_Eyck_-_Arnolfini_Portrait.jpg) |
+| Albrecht Dürer, *Self-Portrait with Fur-Trimmed Robe* (1500) | Alte Pinakothek, Munich | [Commons](https://commons.wikimedia.org/wiki/File:D%C3%BCrer_Alte_Pinakothek.jpg) |
+| Piero della Francesca, *The Baptism of Christ* (c. 1448–1450) | National Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:Piero_della_Francesca_-_Battesimo_di_Cristo_%28National_Gallery,_London%29.jpg) |
+| Pontormo, *Deposition from the Cross* (1525–1528) | Santa Felicita, Florence | [Commons](https://commons.wikimedia.org/wiki/File:Jacopo_Pontormo_-_Kreuzabnahme_Christi.jpg) |
+| Bronzino, *Venus, Cupid, Folly and Time* (c. 1545) | National Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:Angelo_Bronzino_-_Venus,_Cupid,_Folly_and_Time_-_National_Gallery,_London.jpg) |
+| Bronzino, *Portrait of Eleanor of Toledo with Her Son Giovanni* (c. 1545) | Uffizi Gallery, Florence | [Commons](https://commons.wikimedia.org/wiki/File:Bronzino_-_Eleonora_di_Toledo_col_figlio_Giovanni_-_Google_Art_Project.jpg) |
+| Parmigianino, *Madonna with the Long Neck* (1534–1540) | Uffizi Gallery, Florence | [Commons](https://commons.wikimedia.org/wiki/File:Parmigianino_-_Madonna_and_Child_with_Angels,_known_as_the_Madonna_with_the_Long_Neck.jpg) |
+| Rosso Fiorentino, *Spedalingo Altarpiece* (1518) | Uffizi Gallery, Florence | [Commons](https://commons.wikimedia.org/wiki/File:Rosso_Fiorentino_-_Spedalingo_Altarpiece_-_Google_Art_Project.jpg) |
+| El Greco, *View of Toledo* (c. 1599–1600) | Metropolitan Museum of Art, New York | [Commons](https://commons.wikimedia.org/wiki/File:View_of_Toledo_MET_DP349564.jpg) |
+| El Greco, *Laocoön* (c. 1610–1614) | National Gallery of Art, Washington | [Commons](https://commons.wikimedia.org/wiki/File:El_Greco_%28Domenikos_Theotokopoulos%29_-_Laoco%C3%B6n_-_Google_Art_Project.jpg) |
+| Tintoretto, *Susanna and the Elders* (1555–1556) | Kunsthistorisches Museum, Vienna | [Commons](https://commons.wikimedia.org/wiki/File:Jacopo_Robusti,_called_Tintoretto_-_Susanna_and_the_Elders_-_Google_Art_Project.jpg) |
+| Giuseppe Arcimboldo, *Vertumnus* (1590–1591) | Skokloster Castle, Sweden | [Commons](https://commons.wikimedia.org/wiki/File:Vertumnus_%C3%A5rstidernas_gud_m%C3%A5lad_av_Giuseppe_Arcimboldo_1591_-_Skoklosters_slott_-_91503.jpg) |
+| Peter Paul Rubens, *The Three Graces* (1630–1635) | Museo del Prado, Madrid | [Commons](https://commons.wikimedia.org/wiki/File:The_Three_Graces,_by_Peter_Paul_Rubens,_from_Prado_in_Google_Earth.jpg) |
+| Peter Paul Rubens, *The Judgement of Paris* (1638–1639) | Museo del Prado, Madrid | [Commons](https://commons.wikimedia.org/wiki/File:Peter_Paul_Rubens_115.jpg) |
+| Rembrandt, *The Anatomy Lesson of Dr Nicolaes Tulp* (1632) | Mauritshuis, The Hague | [Commons](https://commons.wikimedia.org/wiki/File:Rembrandt_-_The_Anatomy_Lesson_of_Dr_Nicolaes_Tulp.jpg) |
+| Rembrandt, *The Return of the Prodigal Son* (c. 1668) | Hermitage Museum, Saint Petersburg | [Commons](https://commons.wikimedia.org/wiki/File:Rembrandt_Harmensz_van_Rijn_-_Return_of_the_Prodigal_Son_-_Google_Art_Project.jpg) |
+| Diego Velázquez, *Las Meninas* (1656) | Museo del Prado, Madrid | [Commons](https://commons.wikimedia.org/wiki/File:Las_Meninas,_by_Diego_Vel%C3%A1zquez,_from_Prado_in_Google_Earth.jpg) |
+| Johannes Vermeer, *Girl with a Pearl Earring* (c. 1665) | Mauritshuis, The Hague | [Commons](https://commons.wikimedia.org/wiki/File:1665_Girl_with_a_Pearl_Earring.jpg) |
+| Johannes Vermeer, *The Milkmaid* (c. 1658–1660) | Rijksmuseum, Amsterdam | [Commons](https://commons.wikimedia.org/wiki/File:Johannes_Vermeer_-_Het_melkmeisje_-_Google_Art_Project.jpg) |
+| Guido Reni, *Atalanta and Hippomenes* (c. 1618–1619) | Museo del Prado, Madrid | [Commons](https://commons.wikimedia.org/wiki/File:Hip%C3%B3menes_y_Atalanta_%28Reni%29.jpg) |
+| Annibale Carracci, *The Beaneater* (c. 1583–1584) | Galleria Colonna, Rome | [Commons](https://commons.wikimedia.org/wiki/File:Carracci_-_Der_Bohnenesser.jpeg) |
+| Bartolomé Esteban Murillo, *The Young Beggar* (c. 1645–1650) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Bartolom%C3%A9_Esteban_Murillo_-_Joven_mendigo_%281645-50%29.jpg) |
+| Nicolas Poussin, *Et in Arcadia ego* (c. 1637–1638) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Les_Bergers_d%27Arcadie_-_Nicolas_Poussin_-_Mus%C3%A9e_du_Louvre_Peintures_INV_7300_;_MR_2339.jpg) |
+| Artemisia Gentileschi, *Judith Slaying Holofernes* (c. 1620) | Uffizi Gallery, Florence | [Commons](https://commons.wikimedia.org/wiki/File:Artemisia_Gentileschi_-_Giuditta_decapita_Oloferne_-_Google_Art_Project-Adjust.jpg) |
+| Orazio Gentileschi, *The Lute Player* (c. 1612–1620) | National Gallery of Art, Washington | [Commons](https://commons.wikimedia.org/wiki/File:Orazio_Gentileschi_-_Il_suonatore_di_liuto_%28National_Gallery_of_Art%29.jpg) |
+| Georges de La Tour, *The Cheat with the Ace of Diamonds* (c. 1636–1638) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Le_Tricheur_%C3%A0_l%27as_de_carreau_-_Georges_de_La_Tour_-_Mus%C3%A9e_du_Louvre_Peintures_RF_1972_8.jpg) |
+| Gerard van Honthorst, *Christ before the High Priest* (c. 1617) | National Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:Gerard_van_Honthorst_-_Christ_before_the_High_Priest_-_WGA11650.jpg) |
+| Jusepe de Ribera, *The Clubfoot* (1642) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:El_patizambo,_por_Jos%C3%A9_de_Ribera.jpg) |
+| Hendrick ter Brugghen, *The Calling of Saint Matthew* (1621) | Centraal Museum, Utrecht | [Commons](https://commons.wikimedia.org/wiki/File:Brugghen,_Hendrick_ter_-_The_Calling_of_St._Matthew_-_1621.jpg) |
+| Dirck van Baburen, *The Procuress* (1622) | Museum of Fine Arts, Boston | [Commons](https://commons.wikimedia.org/wiki/File:Dirck_van_Baburen_-_The_Procuress_-_Google_Art_Project.jpg) |
+| Antoine Watteau, *The Embarkation for Cythera* (1717) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:L%27Embarquement_pour_Cyth%C3%A8re,_by_Antoine_Watteau,_from_C2RMF_retouched.jpg) |
+| Jean-Honoré Fragonard, *The Swing* (c. 1767) | Wallace Collection, London | [Commons](https://commons.wikimedia.org/wiki/File:Fragonard,_The_Swing.jpg) |
+| Jean-Honoré Fragonard, *A Young Girl Reading* (c. 1770) | National Gallery of Art, Washington | [Commons](https://commons.wikimedia.org/wiki/File:Fragonard,_The_Reader.jpg) |
+| François Boucher, *Portrait of Madame de Pompadour* (1756) | Alte Pinakothek, Munich | [Commons](https://commons.wikimedia.org/wiki/File:Madame_de_Pompadour.jpg) |
+| François Boucher, *Diana Leaving Her Bath* (1742) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Diane_sortant_du_bain_-_Fran%C3%A7ois_Boucher_-_Mus%C3%A9e_du_Louvre_Peintures_INV_2712.jpg) |
+| Giovanni Battista Tiepolo, *The Banquet of Cleopatra* (1743–1744) | National Gallery of Victoria, Melbourne | [Commons](https://commons.wikimedia.org/wiki/File:Giambattista_Tiepolo_-_The_Banquet_of_Cleopatra_-_Google_Art_Project.jpg) |
+| Canaletto, *The Stonemason's Yard* (c. 1725) | National Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:Canaletto_-_The_Stonemason%27s_Yard.jpg) |
+| Jean-Siméon Chardin, *The Ray* (1725–1726) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:La_Raie_-_Jean_Baptiste_Sim%C3%A9on_Chardin_-_Mus%C3%A9e_du_Louvre_Peintures_INV_3197.jpg) |
+| Thomas Gainsborough, *Mr and Mrs Andrews* (c. 1750) | National Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:Thomas_Gainsborough_-_Mr._und_Mrs._Andrews_%28c._1750%29.jpg) |
+| Pietro Longhi, *The Rhinoceros* (1751) | Ca' Rezzonico, Venice | [Commons](https://commons.wikimedia.org/wiki/File:Ca%27_Rezzonico_-_Il_rinoceronte_1751_-_Pietro_Longhi_.jpg) |
+| Jacques-Louis David, *The Death of Marat* (1793) | Royal Museums of Fine Arts of Belgium, Brussels | [Commons](https://commons.wikimedia.org/wiki/File:Jacques-Louis_David_-_Marat_assassinated_-_Google_Art_Project_2.jpg) |
+| Jacques-Louis David, *The Death of Socrates* (1787) | Metropolitan Museum of Art, New York | [Commons](https://commons.wikimedia.org/wiki/File:The_Death_of_Socrates_MET_DP-13139-001.jpg) |
+| Jacques-Louis David, *Napoleon Crossing the Alps* (1801) | Château de Malmaison, Rueil-Malmaison | [Commons](https://commons.wikimedia.org/wiki/File:David_-_Napoleon_crossing_the_Alps_-_Malmaison2.jpg) |
+| Jean-Auguste-Dominique Ingres, *Grande Odalisque* (1814) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:La_grande_odalisque_-_Jean-Auguste_Dominique_Ingres_-_Mus%C3%A9e_du_Louvre_Peintures_RF_1158.jpg) |
+| Jean-Auguste-Dominique Ingres, *The Valpinçon Bather* (1808) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Jean-Auguste-Dominique_Ingres_-_La_Baigneuse_Valpin%C3%A7on.jpg) |
+| Angelica Kauffman, *Cornelia, Mother of the Gracchi* (1788) | Royal Castle, Warsaw | [Commons](https://commons.wikimedia.org/wiki/File:Angelica_kauffman_ra_cornelia_mother_of_the_gracchi060808%29.jpg) |
+| Élisabeth Vigée Le Brun, *Self-Portrait with Her Daughter Julie* (1789) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Self-portrait_with_Her_Daughter_by_Elisabeth-Louise_Vig%C3%A9e_Le_Brun.jpg) |
+| Anne-Louis Girodet, *The Sleep of Endymion* (1791) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Girodet_Sleep_of_Endymion.jpg) |
+| Eugène Delacroix, *Liberty Leading the People* (1830) | Louvre, Paris | [Commons](https://commons.wikimedia.org/wiki/File:La_Libert%C3%A9_guidant_le_peuple_-_Eug%C3%A8ne_Delacroix_-_Mus%C3%A9e_du_Louvre_Peintures_RF_129_-_apr%C3%A8s_restauration_2024.jpg) |
+| Théodore Géricault, *Woman with a Monomania of Envy* (c. 1819–1822) | Musée des Beaux-Arts, Lyon | [Commons](https://commons.wikimedia.org/wiki/File:La_Monomane_de_l%27envie.jpg) |
+| Caspar David Friedrich, *Wanderer above the Sea of Fog* (c. 1818) | Hamburger Kunsthalle, Hamburg | [Commons](https://commons.wikimedia.org/wiki/File:Friedrich,_Caspar_David_-_Wanderer_%C3%BCber_dem_Nebelmeer.jpg) |
+| Caspar David Friedrich, *The Sea of Ice* (1823–1824) | Hamburger Kunsthalle, Hamburg | [Commons](https://commons.wikimedia.org/wiki/File:Friedrich,_Caspar_David_-_Eismeer.jpg) |
+| J. M. W. Turner, *Rain, Steam and Speed* (1844) | National Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:J._M._W._Turner_-_Rain,_Steam_and_Speed_%E2%80%93_The_Great_Western_Railway.jpg) |
+| J. M. W. Turner, *The Fighting Temeraire* (1839) | National Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:Turner,_J._M._W._-_The_Fighting_T%C3%A9m%C3%A9raire_tugged_to_her_last_Berth_to_be_broken.jpg) |
+| Francisco Goya, *The Third of May 1808* (1814) | Museo del Prado, Madrid | [Commons](https://commons.wikimedia.org/wiki/File:El_Tres_de_Mayo,_by_Francisco_de_Goya,_from_Prado_in_Google_Earth.jpg) |
+| Francisco Goya, *Saturn Devouring His Son* (1820–1823) | Museo del Prado, Madrid | [Commons](https://commons.wikimedia.org/wiki/File:Francisco_de_Goya,_Saturno_devorando_a_su_hijo_%281819-1823%29.jpg) |
+| Francesco Hayez, *The Kiss* (1859) | Pinacoteca di Brera, Milan | [Commons](https://commons.wikimedia.org/wiki/File:El_Beso_%28Pinacoteca_de_Brera,_Mil%C3%A1n,_1859%29.jpg) |
+| John Constable, *The Hay Wain* (1821) | National Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:John_Constable_-_The_Hay_Wain_%281821%29.jpg) |
+| Claude Monet, *Impression, Sunrise* (1872) | Musée Marmottan Monet, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Monet_-_Impression,_Sunrise.jpg) |
+| Claude Monet, *Woman with a Parasol* (1875) | National Gallery of Art, Washington | [Commons](https://commons.wikimedia.org/wiki/File:Claude_Monet_-_Woman_with_a_Parasol_-_Madame_Monet_and_Her_Son_-_Google_Art_Project.jpg) |
+| Claude Monet, *Poppy Field near Argenteuil* (1873) | Musée d'Orsay, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Claude_Monet_-_Poppy_Field_-_Google_Art_Project.jpg) |
+| Pierre-Auguste Renoir, *Bal du moulin de la Galette* (1876) | Musée d'Orsay, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Renoir,_Pierre-Auguste_-_Dance_at_Le_Moulin_de_la_Galette,_1876.jpg) |
+| Pierre-Auguste Renoir, *Luncheon of the Boating Party* (1880–1881) | Phillips Collection, Washington | [Commons](https://commons.wikimedia.org/wiki/File:Pierre-Auguste_Renoir_-_Luncheon_of_the_Boating_Party_-_Google_Art_Project.jpg) |
+| Edgar Degas, *The Dance Class* (1874) | Metropolitan Museum of Art, New York | [Commons](https://commons.wikimedia.org/wiki/File:Edgar_Degas_The_Dance_Class.jpg) |
+| Edgar Degas, *L'Absinthe* (1875–1876) | Musée d'Orsay, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Edgar_Degas_-_In_a_Caf%C3%A9_-_Google_Art_Project_2.jpg) |
+| Édouard Manet, *A Bar at the Folies-Bergère* (1882) | Courtauld Gallery, London | [Commons](https://commons.wikimedia.org/wiki/File:Un_bar_aux_Folies-Berg%C3%A8re_d%27E._Manet_%28Fondation_Vuitton,_Paris%29_%2833539037428%29.jpg) |
+| Camille Pissarro, *The Boulevard Montmartre on a Winter Morning* (1897) | Metropolitan Museum of Art, New York | [Commons](https://commons.wikimedia.org/wiki/File:The_Boulevard_Montmartre_on_a_Winter_Morning.JPG) |
+| Berthe Morisot, *The Cradle* (1872) | Musée d'Orsay, Paris | [Commons](https://commons.wikimedia.org/wiki/File:Berthe_Morisot_-_Le_berceau.jpg) |
+| Gustave Caillebotte, *Paris Street; Rainy Day* (1877) | Art Institute of Chicago | [Commons](https://commons.wikimedia.org/wiki/File:Gustave_Caillebotte_-_Paris_Street,_Rainy_Day_-_1964.336_-_Art_Institute_of_Chicago.jpg) |
+| Alfred Sisley, *Flood at Port-Marly* (1876) | Musée d'Orsay, Paris | [Commons](https://commons.wikimedia.org/wiki/File:La_inundaci%C3%B3n_en_Port_Marly,_por_Alfred_Sisley.jpg) |

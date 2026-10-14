@@ -83,8 +83,7 @@ export class GuidedTour {
       previous: () => this.previous(),
       togglePause: () => this.togglePause(),
       next: () => this.next(),
-      // Uscendo con il pulsante si è dentro un clic: su PC si può riprendere subito il controllo del mouse.
-      exit: () => this.exit(!this.controls.isTouchMode),
+      exit: () => this.exit(),
     });
 
     document.addEventListener('keydown', this.onKeyDown);
@@ -174,8 +173,8 @@ export class GuidedTour {
     this.refreshPanel();
   }
 
-  /** Esce dalla visita e riporta la camera dov'era il visitatore. */
-  exit(relockPointer: boolean): void {
+  /** Esce dalla visita e riporta la camera dov'era il visitatore. `byEscape` se si esce con il tasto Esc invece che con il pulsante. */
+  exit(byEscape = false): void {
     const tour = this.active;
     if (!tour) return;
     this.active = null;
@@ -183,7 +182,8 @@ export class GuidedTour {
     this.narrator.stop();
     tour.highlight.hide(0.5);
     this.panel.hide();
-    if (relockPointer) this.controls.lock();
+    // Su PC si riprende subito a guardarsi intorno, senza cliccare.
+    this.controls.resume(byEscape);
     this.animateCamera(tour.returnPosition, tour.returnQuaternion, this.options.approachDuration, () => {
       this.controls.enabled = true;
     });
@@ -306,7 +306,7 @@ export class GuidedTour {
         this.togglePause();
         break;
       case 'Escape':
-        this.exit(false);
+        this.exit(true);
         break;
       default:
         return;

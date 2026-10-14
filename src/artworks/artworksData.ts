@@ -16,6 +16,8 @@ export interface Artwork {
   id: string;
   title: string;
   author?: string;
+  /** La corrente: l'id di una di quelle in src/data/movements.ts. */
+  movement: string;
   year?: string | number;
   /** Museo o luogo in cui è conservata l'opera. */
   location?: string;
@@ -23,6 +25,8 @@ export interface Artwork {
   description?: string;
   /** Indirizzo dell'immagine. Se manca si usa un'immagine simbolica. */
   image?: string;
+  /** Miniatura per il menu iniziale, ritagliata al centro. */
+  thumb?: string;
   /** Dimensioni reali della tela in metri, cornice esclusa. */
   width: number;
   height: number;
@@ -39,13 +43,15 @@ export interface ArtworkSource {
   apiVersion: string;
   /** Lato più lungo, in pixel, delle immagini da scaricare. */
   maxImageSize: number;
+  /** Misure, in pixel, delle miniature del menu iniziale. */
+  thumbnail: { width: number; height: number };
 }
 
 /**
  * Carica le opere pubblicate su Sanity. Le opere con errori vengono saltate con un avviso in console,
  * così un errore di battitura non blocca tutto il museo.
  */
-export async function loadArtworks(source: ArtworkSource): Promise<Artwork[]> {
+export async function loadArtworks(source: ArtworkSource, movements: readonly string[]): Promise<Artwork[]> {
   const response = await fetch(queryUrl(source));
   if (!response.ok) throw new Error(`Sanity: risposta HTTP ${response.status}`);
   const data = withoutNulls(((await response.json()) as { result?: unknown }).result);
@@ -54,7 +60,7 @@ export async function loadArtworks(source: ArtworkSource): Promise<Artwork[]> {
   const artworks: Artwork[] = [];
   const ids = new Set<string>();
   data.forEach((entry: unknown, index) => {
-    const problem = findProblem(entry, ids);
+    const problem = findProblem(entry, ids, movements);
     if (problem) {
       const id = (entry as { id?: unknown } | null)?.id;
       console.warn(`Sanity, opera n. ${index + 1}${typeof id === 'string' ? ` ("${id}")` : ''} ignorata: ${problem}`);
@@ -69,13 +75,15 @@ export async function loadArtworks(source: ArtworkSource): Promise<Artwork[]> {
 }
 
 /** Interroga l'API di Sanity chiedendo le opere già nella forma di Artwork. */
-function queryUrl({ projectId, dataset, apiVersion, maxImageSize }: ArtworkSource): string {
-  // fit=max riduce solo le immagini più grandi di maxImageSize, senza mai ingrandirle;
-  // auto=format le converte in WebP o AVIF se il browser li supporta.
+function queryUrl({ projectId, dataset, apiVersion, maxImageSize, thumbnail }: ArtworkSource): string {
+  // fit=max riduce solo le immagini più grandi di maxImageSize, senza mai ingrandirle; le miniature invece
+  // sono ritagliate al centro. auto=format le converte in WebP o AVIF se il browser li supporta.
   const imageParams = `?fit=max&w=${maxImageSize}&h=${maxImageSize}&auto=format`;
+  const thumbParams = `?fit=crop&w=${thumbnail.width}&h=${thumbnail.height}&auto=format`;
   const query = `*[_type == "artwork"] | order(title) {
-    "id": slug.current, title, author, year, location, description,
+    "id": slug.current, title, author, movement, year, location, description,
     "image": image.asset->url + "${imageParams}",
+    "thumb": image.asset->url + "${thumbParams}",
     width, height, source,
     "tour": tour[] { x, y, zoom, radius, text }
   }`;
@@ -94,7 +102,7 @@ function withoutNulls(value: unknown): unknown {
   );
 }
 
-function findProblem(entry: unknown, usedIds: ReadonlySet<string>): string | null {
+function findProblem(entry: unknown, usedIds: ReadonlySet<string>, movements: readonly string[]): string | null {
   if (typeof entry !== 'object' || entry === null) return 'non è un oggetto';
   const fields = entry as Record<string, unknown>;
 
@@ -102,7 +110,9 @@ function findProblem(entry: unknown, usedIds: ReadonlySet<string>): string | nul
   if (usedIds.has(fields.id)) return `l'id "${fields.id}" è già usato da un'altra opera`;
   if (!isText(fields.title)) return 'manca "title"';
   if (!isPositive(fields.width) || !isPositive(fields.height)) return '"width" e "height" devono essere numeri positivi (metri)';
-  for (const key of ['author', 'location', 'description', 'image', 'source']) {
+  if (!isText(fields.movement)) return 'manca "movement", la corrente';
+  if (!movements.includes(fields.movement)) return `la corrente "${fields.movement}" non è tra quelle di src/data/movements.ts`;
+  for (const key of ['author', 'location', 'description', 'image', 'thumb', 'source']) {
     if (fields[key] !== undefined && typeof fields[key] !== 'string') return `"${key}" deve essere un testo`;
   }
   if (fields.year !== undefined && !isText(fields.year) && typeof fields.year !== 'number') return '"year" deve essere un testo o un numero';

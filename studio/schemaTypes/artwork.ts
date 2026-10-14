@@ -8,6 +8,21 @@ const WALLS = [
   { title: 'Ovest', value: 'ovest' },
 ];
 
+/**
+ * Le correnti, nell'ordine in cui si sono succedute: nel menu iniziale sono le tappe del percorso.
+ * Il museo ha lo stesso elenco, con i colori, in src/data/movements.ts: una corrente nuova va aggiunta in tutti e due.
+ */
+const MOVEMENTS = [
+  { title: 'Rinascimento', value: 'rinascimento' },
+  { title: 'Manierismo', value: 'manierismo' },
+  { title: 'Barocco', value: 'barocco' },
+  { title: 'Caravaggismo', value: 'caravaggismo' },
+  { title: 'Rococò', value: 'rococo' },
+  { title: 'Neoclassicismo', value: 'neoclassicismo' },
+  { title: 'Romanticismo', value: 'romanticismo' },
+  { title: 'Impressionismo', value: 'impressionismo' },
+];
+
 /** Un dettaglio del quadro su cui la camera si avvicina durante la visita guidata. */
 const tourStop = defineArrayMember({
   name: 'tourStop',
@@ -77,21 +92,30 @@ export const artwork = defineType({
       options: { source: 'title' },
       validation: (rule) => rule.required(),
     }),
-    defineField({ name: 'author', title: 'Autore', type: 'string', fieldset: 'card' }),
+    defineField({
+      name: 'author',
+      title: 'Autore',
+      description: 'Nel menu iniziale gli artisti di ogni corrente si possono scegliere uno per uno: scrivi il nome sempre allo stesso modo.',
+      type: 'string',
+      fieldset: 'card',
+    }),
+    defineField({
+      name: 'movement',
+      title: 'Corrente',
+      description: 'La tappa del percorso in cui compare: le opere della stessa corrente stanno nelle stesse sale.',
+      type: 'string',
+      fieldset: 'card',
+      options: { list: MOVEMENTS },
+      validation: (rule) => rule.required(),
+    }),
     defineField({
       name: 'year',
       title: 'Anno',
-      description: 'Per esempio "1599 circa" o "1594-1595". Il primo anno serve a ordinare le opere e per il filtro del periodo.',
+      description: 'Per esempio "1599 circa" o "1594-1595". Il primo anno serve a ordinare le opere nelle sale.',
       type: 'string',
       fieldset: 'card',
     }),
-    defineField({
-      name: 'location',
-      title: 'Dove è conservata',
-      description: 'Museo e città separati da una virgola, per esempio "Galleria Borghese, Roma": la città serve per il filtro e per le sale per città.',
-      type: 'string',
-      fieldset: 'card',
-    }),
+    defineField({ name: 'location', title: 'Dove è conservata', description: 'Per esempio "Galleria Borghese, Roma".', type: 'string', fieldset: 'card' }),
     defineField({
       name: 'description',
       title: 'Descrizione',

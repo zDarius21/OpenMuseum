@@ -1,12 +1,16 @@
 import * as THREE from 'three';
+import '@fontsource/cormorant-garamond/latin-600.css';
+import '@fontsource/source-sans-3/latin-400.css';
+import '@fontsource/source-sans-3/latin-600.css';
 import './style.css';
 import { loadArtworks, type Artwork } from './artworks/artworksData';
-import { artworkOf, pickArtwork, pointerFromEvent } from './artworks/pickArtwork';
+import { artworkOf, pickArtwork } from './artworks/pickArtwork';
 import { isNearArtwork } from './artworks/proximity';
 import { animateTourBadges } from './artworks/tourBadge';
 import { PlayerControls } from './controls/PlayerControls';
+import { MOVEMENTS } from './data/movements';
 import { settings } from './data/settings';
-import { catalogFacets, filterArtworks, planRooms, type VisitFilters } from './rooms/plan';
+import { movementFacets, planRooms } from './rooms/plan';
 import { RoomManager, type RoomInfo } from './rooms/RoomManager';
 import { Museum } from './scene/Museum';
 import { createReflectionMap } from './scene/reflections';
@@ -37,7 +41,7 @@ container.append(hud);
 const minimap = new Minimap(hud);
 const toast = new Toast(container);
 
-// Le sale si generano dai filtri del menu iniziale; sono costruite solo quelle vicine al visitatore.
+// Le sale si generano dalle tappe scelte nel menu iniziale; sono costruite solo quelle vicine al visitatore.
 const rooms = new RoomManager({
   scene: museum.scene,
   renderer: museum.renderer,
@@ -46,7 +50,7 @@ const rooms = new RoomManager({
   layout: { ...settings.rooms, ...settings.artworks },
   barriers: settings.barriers,
   hang: { maxAnisotropy, reflections, spotStrength: settings.artworks.spotStrength },
-  lights: { count: Math.max(...settings.visit.perRoomOptions), fadeDuration: settings.lights.fadeDuration },
+  lights: { count: settings.visit.perRoom, fadeDuration: settings.lights.fadeDuration },
   onRoomChange: (room, total) => {
     minimap.setRoom(minimapRoom(room, total));
     if (!startScreen.isOpen) announceRoom(room, total);
@@ -57,17 +61,16 @@ const controls = new PlayerControls(museum.camera, museum.renderer.domElement, r
 museum.onUpdate((delta) => controls.update(delta));
 
 let catalog: Artwork[] = [];
-/** Aumenta a ogni museo creato: un caricamento superato da una nuova scelta di filtri non tocca più il menu. */
+/** Aumenta a ogni museo creato: un caricamento superato da un nuovo percorso non tocca più il menu. */
 let creation = 0;
+const planRoute = (route: ReadonlySet<string>) => planRooms(catalog, route, MOVEMENTS, settings.visit.perRoom);
 const startScreen = new StartScreen(container, hud, controls, {
-  perRoomOptions: settings.visit.perRoomOptions,
-  defaultPerRoom: settings.visit.defaultPerRoom,
   loadingBar: settings.loadingBar,
-  preview: (filters) => {
-    const works = filterArtworks(catalog, filters);
-    return { artworks: works.length, rooms: planRooms(works, filters, settings.visit.minCityRoom).length };
+  preview: (route) => {
+    const plans = planRoute(route);
+    return { artworks: plans.reduce((sum, plan) => sum + plan.artworks.length, 0), rooms: plans.length };
   },
-  onCreate: (filters) => void createMuseum(filters),
+  onCreate: (route) => void createMuseum(route),
   onEnter: () => {
     const room = rooms.current;
     if (room) announceRoom(room, rooms.rooms.length);
@@ -75,10 +78,10 @@ const startScreen = new StartScreen(container, hud, controls, {
 });
 createControlsHint(container, controls);
 
-/** Genera le sale dai filtri e porta il visitatore all'inizio della prima, che si carica per prima. */
-async function createMuseum(filters: VisitFilters): Promise<void> {
+/** Genera le sale dalle opere scelte e porta il visitatore all'inizio della prima, che si carica per prima. */
+async function createMuseum(route: ReadonlySet<string>): Promise<void> {
   const id = ++creation;
-  const plans = planRooms(filterArtworks(catalog, filters), filters, settings.visit.minCityRoom);
+  const plans = planRoute(route);
   rooms.plan(plans);
   const { position, lookAt } = rooms.start;
   museum.camera.position.set(position.x, settings.camera.eyeHeight, position.z);
@@ -156,13 +159,6 @@ function aimTarget(group: THREE.Object3D | null, near: boolean): AimTarget {
   return near ? 'view-near' : 'none';
 }
 
-// Su PC, senza puntatore bloccato, il cursore diventa una mano sopra i quadri abbastanza vicini da aprire.
-museum.renderer.domElement.addEventListener('pointermove', (event) => {
-  if (event.pointerType !== 'mouse' || controls.isLocked || !controls.enabled) return;
-  const group = pickArtwork(pointerFromEvent(event, museum.renderer.domElement), museum.camera, rooms.artworksRoot);
-  museum.renderer.domElement.style.cursor = group && isNear(group) ? 'pointer' : '';
-});
-
 // Su PC, con la scheda aperta, Invio fa come il pulsante della scheda.
 document.addEventListener('keydown', (event) => {
   if (event.code !== 'Enter' || event.repeat || event.target instanceof HTMLButtonElement) return;
@@ -173,11 +169,11 @@ document.addEventListener('keydown', (event) => {
 
 museum.start();
 
-// Il catalogo (solo i dati, non le immagini) arriva da Sanity: serve al menu per proporre i filtri.
-loadArtworks(settings.sanity)
+// Il catalogo (solo i dati e le miniature, non le immagini grandi) arriva da Sanity: serve al menu per proporre le tappe.
+loadArtworks(settings.sanity, MOVEMENTS.map((movement) => movement.id))
   .then((artworks) => {
     catalog = artworks;
-    startScreen.setCatalog(catalogFacets(artworks));
+    startScreen.setCatalog(movementFacets(artworks, MOVEMENTS));
   })
   .catch((error: unknown) => {
     console.error('Impossibile caricare le opere:', error);

@@ -11,6 +11,8 @@
     "deploy": "npm run build && gh-pages -d dist --nojekyll"
   },
   "dependencies": {
+    "@fontsource/cormorant-garamond": "^5.3.0",
+    "@fontsource/source-sans-3": "^5.3.1",
     "gsap": "^3.15.0",
     "three": "^0.186.1"
   },

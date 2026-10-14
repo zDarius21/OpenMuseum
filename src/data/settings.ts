@@ -24,13 +24,10 @@ export const settings = {
     /** Quante sale, prima e dopo quella in cui ci si trova, hanno le immagini caricate. */
     imageRadius: 1,
   },
-  /** Scelte del menu iniziale. */
+  /** Il percorso scelto nel menu iniziale: ogni corrente diventa una sala, o più sale se ha tante opere. */
   visit: {
-    /** Quante opere per sala si possono scegliere; la più alta è anche il numero di faretti. */
-    perRoomOptions: [4, 6, 8],
-    defaultPerRoom: 6,
-    /** Raggruppando per città, quelle con meno opere di così finiscono insieme in «Altre città». */
-    minCityRoom: 3,
+    /** Numero massimo di opere per sala, che è anche il numero di faretti. */
+    perRoom: 6,
   },
   /** Barra di caricamento della prima sala, nella schermata iniziale: corre subito, poi segue il caricamento vero. */
   loadingBar: {
@@ -114,5 +111,7 @@ export const settings = {
     apiVersion: '2025-02-19',
     /** Lato più lungo, in pixel, con cui si scaricano le immagini: Sanity riduce quelle più grandi. */
     maxImageSize: 2048,
+    /** Misure, in pixel, delle miniature delle opere nel menu iniziale: Sanity le ritaglia al centro. */
+    thumbnail: { width: 400, height: 320 },
   },
 } as const;

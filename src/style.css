@@ -75,7 +75,6 @@ body {
   line-height: 1.4;
 }
 
-.start kbd,
 .card kbd {
   display: inline-block;
   min-width: 1.6em;
@@ -88,94 +87,518 @@ body {
   text-align: center;
 }
 
-/* Schermata iniziale e istruzioni */
+.card__button {
+  border: 0;
+  border-radius: 999px;
+  background: #e0bd6e;
+  color: #1c1915;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.card__button:hover {
+  background: #ecd08f;
+}
+
+.card__button:focus-visible,
+.help-button:focus-visible {
+  outline: 2px solid #f3efe8;
+  outline-offset: 3px;
+}
+
+/* Schermata iniziale: le tappe del percorso, poi le istruzioni. È una pagina chiara che copre il museo. */
 
 .start {
+  --page: #f6f1ea;
+  --surface: #fffaf3;
+  --line: #e6ddd0;
+  --rail: #ddd3c4;
+  --ink: #2d2a32;
+  --muted: #5d5763;
+  --accent: #2f5d62;
+  --accent-hover: #24494d;
+  --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  /* Margine ai lati e larghezza massima del contenuto. */
+  --gutter: 1.75rem;
+  --max: 72rem;
+  /* Diametro dei cerchi delle tappe. */
+  --dot: 4.8rem;
+
   position: absolute;
   inset: 0;
   z-index: 10;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: calc(1rem + env(safe-area-inset-top)) 1rem calc(1rem + env(safe-area-inset-bottom));
-  background: rgb(12 11 10 / 0.5);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.start__panel {
-  width: min(34rem, 100%);
-  max-height: 100%;
+  flex-direction: column;
   overflow-y: auto;
-  padding: 2rem 2rem 1.75rem;
-  border-radius: 16px;
-  background: rgb(20 18 16 / 0.88);
-  color: #f3efe8;
-  box-shadow: 0 20px 60px rgb(0 0 0 / 0.45);
+  overscroll-behavior: contain;
+  background: var(--page);
+  color: var(--ink);
+  color-scheme: light;
+  font-family: 'Source Sans 3', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.4;
 }
 
-.start__eyebrow {
+.start > * {
+  padding-right: max(var(--gutter), env(safe-area-inset-right), calc((100% - var(--max)) / 2));
+  padding-left: max(var(--gutter), env(safe-area-inset-left), calc((100% - var(--max)) / 2));
+}
+
+.start__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding-top: calc(1.25rem + env(safe-area-inset-top));
+}
+
+.start__logo {
   margin: 0;
-  color: #e0bd6e;
-  font-size: 0.75rem;
+  font-family: var(--serif);
+  font-size: 1.4rem;
   font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+}
+
+.start__search {
+  width: min(20.5rem, 100%);
+  height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  /* Su iOS un campo dentro una pagina non selezionabile non riceve il testo. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.start__search::placeholder {
+  color: #77727c;
+}
+
+.start__search:focus-visible {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+}
+
+.start__main {
+  flex: 1 0 auto;
+  padding-top: 1.45rem;
+  padding-bottom: 2rem;
 }
 
 .start__title {
-  margin: 0.2rem 0 0.35rem;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 2.4rem;
-  font-weight: 400;
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(1.85rem, 1.3rem + 1.7vw, 2.4rem);
+  font-weight: 600;
+  line-height: 1.1;
 }
 
-.start__status {
-  min-height: 1.4em;
-  margin: 0 0 1.4rem;
-  color: #b8ad9f;
+.start__lead {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
   font-size: 0.95rem;
 }
 
+.start__status {
+  margin: 1.5rem 0 0;
+  color: var(--muted);
+}
+
+.start__status:empty {
+  display: none;
+}
+
+/* Le tappe: cerchi colorati in fila, uniti da un binario. Sui telefoni la fila scorre di lato. */
+
+.timeline-scroll {
+  margin: 1.4rem calc(-1 * var(--gutter)) 0;
+  padding: 0.25rem var(--gutter);
+  overflow-x: auto;
+  scroll-padding-inline: var(--gutter);
+  scrollbar-width: none;
+}
+
+.timeline-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.timeline {
+  display: grid;
+  /* Abbastanza larghe per «Neoclassicismo»: se non ci stanno tutte, la fila scorre. */
+  grid-auto-columns: minmax(6.75rem, 1fr);
+  grid-auto-flow: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stop {
+  position: relative;
+}
+
+/* Ogni tappa disegna le due metà del binario che la unisce alle vicine. */
+.stop::before,
+.stop::after {
+  position: absolute;
+  top: calc(var(--dot) / 2 - 1.5px);
+  height: 3px;
+  background: var(--rail);
+  content: '';
+}
+
+.stop::before {
+  right: 50%;
+  left: 0;
+}
+
+.stop::after {
+  right: 0;
+  left: 50%;
+}
+
+.stop:first-child::before,
+.stop:last-child::after {
+  display: none;
+}
+
+.stop__button {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 0 0.2rem 0.2rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.stop__dot {
+  display: grid;
+  place-items: center;
+  width: var(--dot);
+  height: var(--dot);
+  border: 1px solid rgb(45 42 50 / 0.07);
+  border-radius: 50%;
+  background: var(--tint);
+  color: var(--accent);
+  transition: transform 0.15s ease-out;
+}
+
+.stop__dot svg {
+  width: 38%;
+  height: 38%;
+  visibility: hidden;
+}
+
+.stop__button[aria-pressed='true'] .stop__dot {
+  border: 2.5px solid var(--accent);
+}
+
+.stop__button[aria-pressed='true'] .stop__dot svg {
+  visibility: visible;
+}
+
+.stop__button:hover:not(:disabled) .stop__dot {
+  transform: scale(1.05);
+}
+
+.stop__button:focus-visible {
+  outline: none;
+}
+
+.stop__button:focus-visible .stop__dot {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.stop__name {
+  margin-top: 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* La tappa aperta, di cui si vedono sotto artisti e opere. */
+.stop__button[aria-current='true'] .stop__name {
+  text-decoration: underline 2px var(--accent);
+  text-underline-offset: 0.3em;
+}
+
+.stop__count {
+  margin-top: 0.45rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.stop__button:disabled {
+  cursor: default;
+}
+
+/* Più chiaro ma pieno: con la trasparenza si vedrebbe il binario attraverso il cerchio. */
+.stop__button:disabled .stop__dot {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--tint) 40%, var(--page));
+}
+
+.stop__button:disabled .stop__name {
+  color: var(--muted);
+}
+
+/* Gli artisti della tappa aperta */
+
+.artists {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.15rem;
+  margin-top: 1.35rem;
+}
+
+.artists__label {
+  margin-right: 0.2rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* Quante opere della corrente aperta sono nel percorso, in fondo alla riga. */
+.artists__count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.artists__hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 2.15rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+button.pill {
+  cursor: pointer;
+}
+
+button.pill:hover {
+  border-color: #cdc2b2;
+}
+
+.pill[aria-pressed='true'],
+button.pill[aria-pressed='true']:hover {
+  border-color: var(--accent);
+  background: var(--tint);
+}
+
+.pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Le opere della tappa aperta, o i risultati della ricerca */
+
+.works {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.85rem;
+  margin: 1.4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.work {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0.45rem 0.45rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  transition: opacity 0.2s;
+}
+
+/* Le opere non scelte: non entreranno nel museo. */
+.work--off {
+  opacity: 0.5;
+}
+
+.work--off:hover {
+  opacity: 0.75;
+}
+
+.work__frame {
+  position: relative;
+  display: block;
+  aspect-ratio: 5 / 4;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--tint);
+}
+
+.work__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Il segno di spunta in alto a destra: pieno sulle opere scelte, vuoto sulle altre. */
+.work__check {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border: 1.5px solid #fff;
+  border-radius: 50%;
+  background: rgb(45 42 50 / 0.3);
+  color: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+.work__check svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  stroke-width: 2.6;
+  visibility: hidden;
+}
+
+.work__pick[aria-pressed='true'] ~ .work__frame .work__check {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.work__pick[aria-pressed='true'] ~ .work__frame .work__check svg {
+  visibility: visible;
+}
+
+.work__title {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.work__artist {
+  margin-top: auto;
+  padding-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.work__movement {
+  align-self: flex-start;
+  margin-top: 0.45rem;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--tint);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* Tutta la scheda è un pulsante che mette l'opera nel percorso o la toglie. */
+.work__pick {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  cursor: pointer;
+}
+
+.work:has(.work__pick:hover) {
+  border-color: var(--accent);
+}
+
+.work__pick:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Le istruzioni */
+
 .start__steps {
   display: grid;
-  gap: 0.95rem;
-  margin: 0 0 1.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 0.85rem;
+  margin: 1.5rem 0 0;
   padding: 0;
   list-style: none;
 }
 
 .start__step {
   display: grid;
-  grid-template-columns: 2.25rem 1fr;
-  gap: 0.85rem;
-  align-items: center;
-  line-height: 1.4;
+  grid-template-columns: 2.5rem 1fr;
+  gap: 0.9rem;
+  align-items: start;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
 }
 
 .start__step strong {
   display: block;
+  margin-bottom: 0.15rem;
   font-size: 0.95rem;
 }
 
 .start__text {
-  color: #d6cfc4;
+  color: var(--muted);
   font-size: 0.88rem;
 }
 
 .start__icon {
   display: grid;
   place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 1px solid rgb(255 255 255 / 0.2);
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
-  color: #e0bd6e;
+  background: #ece4d8;
+  color: var(--accent);
 }
 
 .start__icon svg {
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.start kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  margin: 0 0.1em;
+  padding: 0.05em 0.4em;
+  border: 1px solid #d3c9ba;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #fff;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.85em;
+  text-align: center;
 }
 
 /* Lo stesso bollino dorato appeso accanto ai quadri con visita guidata. */
@@ -203,285 +626,169 @@ body {
   content: '';
 }
 
+/* In fondo, sempre in vista: il riepilogo del percorso e il pulsante per partire. */
+
+.start__footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding-top: 0.55rem;
+  padding-bottom: calc(0.55rem + env(safe-area-inset-bottom));
+  background: var(--page);
+}
+
+/* Le opere che scorrono sotto sfumano invece di finire contro un bordo. */
+.start__footer::before {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: 1.5rem;
+  background: linear-gradient(transparent, var(--page));
+  pointer-events: none;
+  content: '';
+}
+
+.start__state {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.start__summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .start__progress {
+  width: min(16rem, 100%);
   height: 4px;
-  margin-bottom: 1rem;
   overflow: hidden;
   border-radius: 2px;
-  background: rgb(255 255 255 / 0.12);
+  background: var(--line);
 }
 
 /* La riempie ProgressBar a ogni frame: scaleX non ricalcola l'impaginazione come width. */
 .start__bar {
   height: 100%;
-  background: #e0bd6e;
+  background: var(--accent);
   transform: scaleX(0);
   transform-origin: left;
 }
 
-.start__button,
-.card__button {
-  border: 0;
-  border-radius: 999px;
-  background: #e0bd6e;
-  color: #1c1915;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
+.start__actions {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-left: auto;
 }
 
 .start__button {
-  width: 100%;
   min-height: 3rem;
-  font-size: 1rem;
-}
-
-.start__button:hover:not(:disabled),
-.card__button:hover {
-  background: #ecd08f;
-}
-
-.start__button:disabled {
-  opacity: 0.55;
-  cursor: progress;
-}
-
-.start__button:focus-visible,
-.card__button:focus-visible,
-.help-button:focus-visible {
-  outline: 2px solid #f3efe8;
-  outline-offset: 3px;
-}
-
-@media (max-width: 480px), (max-height: 560px) {
-  .start__panel {
-    padding: 1.4rem 1.25rem 1.25rem;
-  }
-
-  .start__title {
-    font-size: 1.9rem;
-  }
-
-  .start__status {
-    margin-bottom: 1rem;
-  }
-
-  .start__steps {
-    gap: 0.7rem;
-    margin-bottom: 1.2rem;
-  }
-}
-
-/* Menu iniziale: i filtri da cui si generano le sale */
-
-.start__filters {
-  display: grid;
-  gap: 1.1rem;
-}
-
-.field {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
+  padding: 0 1.6rem;
   border: 0;
-}
-
-.field legend {
-  margin-bottom: 0.5rem;
-  padding: 0;
-  color: #b8ad9f;
-  font-size: 0.75rem;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.segments,
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-/* Le caselle vere restano nel modulo, invisibili ma raggiungibili con la tastiera: si vede l'etichetta accanto. */
-.segment,
-.chip,
-.toggle {
-  position: relative;
   cursor: pointer;
 }
 
-.segment input,
-.chip input,
-.toggle input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+.start__button:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
 
-.segment span {
-  display: inline-block;
-  min-width: 3rem;
-  padding: 0.45rem 0.95rem;
-  border: 1px solid rgb(255 255 255 / 0.25);
-  border-radius: 999px;
-  font-size: 0.9rem;
-  text-align: center;
+.start__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-.segment input:checked + span {
-  border-color: #e0bd6e;
-  background: #e0bd6e;
-  color: #1c1915;
-  font-weight: 600;
+.start__button[data-action='enter']:disabled {
+  cursor: progress;
 }
 
-.chip span {
-  display: inline-block;
-  padding: 0.3rem 0.75rem;
-  border: 1px solid rgb(255 255 255 / 0.2);
-  border-radius: 999px;
-  color: #b8ad9f;
-  font-size: 0.85rem;
-}
-
-.chip small,
-.toggle small {
-  margin-left: 0.15rem;
-  opacity: 0.7;
-}
-
-.chip input:checked + span {
-  border-color: #e0bd6e;
-  background: rgb(224 189 110 / 0.16);
-  color: #f3efe8;
-}
-
-.segment input:focus-visible + span,
-.chip input:focus-visible + span,
-.toggle input:focus-visible + span {
-  outline: 2px solid #f3efe8;
-  outline-offset: 2px;
-}
-
-.field__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.select {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #d6cfc4;
-  font-size: 0.9rem;
-}
-
-.select select {
-  padding: 0.35rem 0.6rem;
-  border: 1px solid rgb(255 255 255 / 0.25);
-  border-radius: 8px;
-  background: #2b2724;
-  color: #f3efe8;
-  font: inherit;
-}
-
-/* Interruttore: una casella che diventa dorata con il segno di spunta. */
-.toggle span {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 0.9rem;
-}
-
-.toggle span::before {
-  display: grid;
-  flex-shrink: 0;
-  place-items: center;
-  width: 1.15rem;
-  height: 1.15rem;
-  border: 1px solid rgb(255 255 255 / 0.35);
-  border-radius: 4px;
-  color: #1c1915;
-  font-size: 0.8rem;
-  font-weight: 700;
-  content: '';
-}
-
-.toggle input:checked + span::before {
-  border-color: #e0bd6e;
-  background: #e0bd6e;
-  content: '✓';
-}
-
-.start__summary {
-  margin: 0.2rem 0 -0.2rem;
-  color: #ead6a4;
-  font-size: 0.95rem;
+.start__button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .start__link {
   padding: 0;
   border: 0;
   background: none;
-  color: #e0bd6e;
+  color: var(--accent);
   font: inherit;
-  font-size: 0.85rem;
-  letter-spacing: normal;
+  font-size: 0.95rem;
+  font-weight: 600;
   text-decoration: underline;
-  text-transform: none;
+  text-underline-offset: 0.2em;
   cursor: pointer;
 }
 
-.start__guide .start__link {
-  display: block;
-  margin: 0.9rem auto 0;
+.start__link:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
-/* Telefono in orizzontale: istruzioni su due colonne, così entra tutto senza scorrere. */
-@media (max-height: 500px) and (min-width: 600px) {
-  .start__panel {
-    width: min(48rem, 100%);
-    padding: 1rem 1.4rem 1.1rem;
+@media (max-width: 640px) {
+  .start {
+    --gutter: 1rem;
+    --dot: 3.6rem;
   }
 
-  .start__title {
-    margin: 0 0 0.15rem;
-    font-size: 1.6rem;
+  .start__header {
+    padding-top: calc(0.9rem + env(safe-area-inset-top));
   }
 
-  .start__status {
-    margin-bottom: 0.8rem;
-    font-size: 0.85rem;
+  .start__search {
+    width: 100%;
   }
 
-  .start__steps {
-    grid-template-columns: 1fr 1fr;
-    gap: 0.6rem 1.4rem;
-    margin-bottom: 0.9rem;
+  .start__main {
+    padding-top: 1.2rem;
   }
 
-  .start__step {
-    grid-template-columns: 1.9rem 1fr;
+  .timeline-scroll {
+    margin-top: 1.2rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .timeline {
+    grid-auto-columns: 6.4rem;
+  }
+
+  .stop {
+    scroll-snap-align: start;
+  }
+
+  .stop__name {
+    font-size: 0.82rem;
+  }
+
+  .artists {
+    margin-top: 1.4rem;
+  }
+
+  .works {
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
     gap: 0.6rem;
   }
 
-  .start__icon {
-    width: 1.9rem;
-    height: 1.9rem;
-  }
-
-  .start__step strong {
-    font-size: 0.85rem;
-  }
-
-  .start__text {
-    font-size: 0.78rem;
+  .start__actions {
+    flex: 1 1 100%;
   }
 
   .start__button {
-    min-height: 2.6rem;
+    flex: 1;
   }
 }
 

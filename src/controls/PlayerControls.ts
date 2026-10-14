@@ -38,8 +38,8 @@ const SCREEN_CENTER = new THREE.Vector2(0, 0);
  */
 export class PlayerControls {
   /**
-   * Chiamata a ogni clic o tocco breve sulla scena, con il punto in coordinate normalizzate (da -1 a 1).
-   * Se restituisce true il clic è stato usato (per esempio per aprire una visita guidata) e non blocca il puntatore.
+   * Chiamata a ogni tocco breve sulla scena e a ogni clic con il puntatore bloccato, con il punto in coordinate
+   * normalizzate (da -1 a 1). Restituisce true se il clic è stato usato, per esempio per aprire una visita guidata.
    */
   onTap: ((pointer: THREE.Vector2) => boolean) | null = null;
 
@@ -56,6 +56,8 @@ export class PlayerControls {
   private readonly listeners = new Set<() => void>();
   private touchMode = window.matchMedia('(pointer: coarse)').matches;
   private look: { pointerId: number; x: number; y: number; startX: number; startY: number; startTime: number } | null = null;
+  /** Dopo un'uscita con Esc: il puntatore si blocca quando il tasto viene rilasciato. */
+  private lockOnEscapeUp = false;
 
   constructor(camera: THREE.Camera, domElement: HTMLElement, colliders: readonly THREE.Box3[], options: PlayerOptions) {
     this.camera = camera;
@@ -109,7 +111,10 @@ export class PlayerControls {
     this.notify();
   }
 
-  /** Blocca il puntatore sulla scena; va chiamato durante un clic o un tasto premuto dall'utente. */
+  /**
+   * Blocca il puntatore sulla scena. Va chiamato durante un clic o un tasto premuto dall'utente, oppure dopo che è
+   * stata la pagina a sbloccarlo con unlock: in quel caso Chrome ed Edge lo permettono anche senza.
+   */
   lock(): void {
     // Il browser rifiuta il blocco se richiesto subito dopo l'uscita con Esc: si riprova al clic successivo.
     // Promise.resolve perché alcuni browser restituiscono undefined invece di una Promise.
@@ -117,7 +122,21 @@ export class PlayerControls {
   }
 
   unlock(): void {
+    this.lockOnEscapeUp = false;
     if (this.isLocked) document.exitPointerLock();
+  }
+
+  /**
+   * Riprende il controllo del mouse dopo una vista ravvicinata o una visita guidata, senza bisogno di un clic: il
+   * puntatore l'aveva sbloccato la pagina, e Chrome ed Edge in quel caso lo ribloccano anche senza (negli altri browser
+   * resta il suggerimento che chiede un clic). Uscendo con Esc si aspetta che il tasto sia rilasciato: Chrome tratta
+   * ogni evento di Esc che la pagina non ha gestito, rilascio compreso, come «libera il mouse», e un blocco chiesto
+   * prima verrebbe tolto subito.
+   */
+  resume(byEscape: boolean): void {
+    if (this.touchMode) return;
+    if (byEscape) this.lockOnEscapeUp = true;
+    else this.lock();
   }
 
   /** Registra una funzione chiamata quando cambia il blocco del puntatore o la modalità touch. Restituisce la funzione per rimuoverla. */
@@ -181,9 +200,11 @@ export class PlayerControls {
     if (!this.isEnabled) return;
 
     if (event.pointerType === 'mouse') {
-      // Con il puntatore bloccato si mira con il centro dello schermo, altrimenti con il cursore.
+      // Con il puntatore bloccato si mira con il centro dello schermo. Con il puntatore libero il clic riprende solo
+      // la visita, come dice il suggerimento al centro dello schermo: uscendo da una vista ravvicinata o da una
+      // visita guidata il quadro è proprio lì sotto, e il clic lo riaprirebbe.
       if (this.isLocked) this.onTap?.(SCREEN_CENTER);
-      else if (!this.onTap?.(pointerFromEvent(event, this.domElement))) this.lock();
+      else this.lock();
     } else if (this.look === null) {
       const { pointerId, clientX: x, clientY: y } = event;
       this.look = { pointerId, x, y, startX: x, startY: y, startTime: performance.now() };
@@ -219,10 +240,17 @@ export class PlayerControls {
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
     this.keys.delete(event.code);
+    if (event.code === 'Escape' && this.lockOnEscapeUp) {
+      this.lockOnEscapeUp = false;
+      // Senza preventDefault Chrome considera il rilascio non gestito e toglie subito il blocco appena chiesto.
+      event.preventDefault();
+      this.lock();
+    }
   };
 
   /** Se la finestra perde il focus i keyup non arrivano: senza questo il visitatore continuerebbe a camminare. */
   private readonly onBlur = (): void => {
     this.keys.clear();
+    this.lockOnEscapeUp = false;
   };
 }
