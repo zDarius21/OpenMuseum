@@ -3,6 +3,7 @@ import type { PlacedArtwork } from '../rooms/layout';
 import type { Room } from '../scene/Room';
 import type { Artwork } from './artworksData';
 import { createArtwork, markShared } from './createArtwork';
+import { fetchImage } from './imageCache';
 import { createPlaceholderTexture } from './placeholder';
 
 export interface HangOptions {
@@ -15,9 +16,6 @@ export interface HangOptions {
 const FRAME_COLOR = 0xb08a3e;
 /** Lo stesso oro per tutte le cornici. */
 let frameMaterial: THREE.Material | null = null;
-// Le ImageBitmap si decodificano fuori dal thread principale. Con TextureLoader la decodifica avveniva durante
-// il passaggio alla scheda grafica e fermava il museo per decine di millisecondi a quadro, appena entrati in una sala.
-const bitmapLoader = new THREE.ImageBitmapLoader();
 
 /**
  * Appende le opere di una sala ai posti calcolati da layoutRoom. Le tele restano scure finché non
@@ -36,11 +34,17 @@ export function hangArtworks(placed: readonly PlacedArtwork[], room: Room, optio
   return group;
 }
 
-/** Scarica l'immagine di un'opera; se manca o non si carica, restituisce un'immagine simbolica. */
+/**
+ * L'immagine di un'opera, dalla cache di imageCache (che spesso l'ha già scaricata mentre si sceglieva il percorso);
+ * se manca o non si carica, un'immagine simbolica.
+ */
 export async function loadArtworkTexture(artwork: Artwork, maxAnisotropy: number): Promise<THREE.Texture> {
   if (!artwork.image) return createPlaceholderTexture(artwork, maxAnisotropy);
   try {
-    const bitmap = await bitmapLoader.loadAsync(artwork.image);
+    // Le ImageBitmap si decodificano fuori dal thread principale. Con TextureLoader la decodifica avveniva durante
+    // il passaggio alla scheda grafica e fermava il museo per decine di millisecondi a quadro, appena entrati in una sala.
+    // Le opzioni sono quelle di THREE.ImageBitmapLoader.
+    const bitmap = await createImageBitmap(await fetchImage(artwork.image), { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
     const texture = new THREE.Texture(bitmap);
     // Una volta sulla scheda grafica l'immagine decodificata non serve più: chiuderla libera subito la memoria.
     const close = () => bitmap.close();

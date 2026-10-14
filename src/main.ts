@@ -4,6 +4,7 @@ import '@fontsource/source-sans-3/latin-400.css';
 import '@fontsource/source-sans-3/latin-600.css';
 import './style.css';
 import { loadArtworks, type Artwork } from './artworks/artworksData';
+import { prefetchImages } from './artworks/imageCache';
 import { artworkOf, pickArtwork } from './artworks/pickArtwork';
 import { isNearArtwork } from './artworks/proximity';
 import { animateTourBadges } from './artworks/tourBadge';
@@ -70,6 +71,8 @@ const startScreen = new StartScreen(container, hud, controls, {
     const plans = planRoute(route);
     return { artworks: plans.reduce((sum, plan) => sum + plan.artworks.length, 0), rooms: plans.length };
   },
+  // Le immagini delle opere scelte cominciano ad arrivare già mentre si sceglie, prima quelle della prima sala.
+  onRouteChange: (route) => prefetchImages(planRoute(route).flatMap((plan) => plan.artworks.flatMap((artwork) => artwork.image ?? []))),
   onCreate: (route) => void createMuseum(route),
   onEnter: () => {
     const room = rooms.current;

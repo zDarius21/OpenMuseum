@@ -15,6 +15,8 @@ export interface StartScreenOptions {
   loadingBar: ProgressBarOptions;
   /** Quante opere e quante sale darebbero le opere scelte (per id), per il riepilogo in fondo alla pagina. */
   preview(route: ReadonlySet<string>): { artworks: number; rooms: number };
+  /** Chiamata quando cambiano le opere scelte (per id), anche più volte con le stesse: le immagini possono arrivare prima. */
+  onRouteChange(route: ReadonlySet<string>): void;
   /** Chiamata con «Inizia il percorso» con le opere scelte: costruisce le sale. */
   onCreate(route: ReadonlySet<string>): void;
   /** Chiamata quando il visitatore entra (o torna) nel museo chiudendo la schermata. */
@@ -422,6 +424,7 @@ export class StartScreen {
       button.parentElement!.classList.toggle('work--off', !on && !this.searching);
     }
     this.renderSummary();
+    this.options.onRouteChange(this.routeIds());
   }
 
   /** Gli artisti e le opere della corrente aperta, oppure i risultati della ricerca. */
