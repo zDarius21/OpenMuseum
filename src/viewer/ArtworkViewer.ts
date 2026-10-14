@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Artwork } from '../artworks/artworksData';
 import { CANVAS_OFFSET } from '../artworks/createArtwork';
-import { artworkOf, pickArtwork } from '../artworks/pickArtwork';
+import { artworkOf } from '../artworks/pickArtwork';
 import { isNearArtwork } from '../artworks/proximity';
 import type { PlayerControls } from '../controls/PlayerControls';
 import { t } from '../i18n/strings';
@@ -74,7 +74,7 @@ const DOUBLE_TAP_TIME = 300;
 const DOUBLE_TAP_DISTANCE = 30;
 
 /**
- * Vista ravvicinata di un quadro senza visita guidata: la camera lo porta a tutto schermo, centrato, poi si ingrandisce
+ * Vista ravvicinata di un quadro: la camera lo porta a tutto schermo, centrato, poi si ingrandisce
  * con rotellina, pizzico o doppio clic e ci si sposta trascinando. La scheda dell'opera resta sopra, e si può nascondere.
  */
 export class ArtworkViewer {
@@ -85,7 +85,6 @@ export class ArtworkViewer {
   private readonly options: ViewerOptions;
   private readonly panel: ViewerPanel;
   private readonly canvas: HTMLCanvasElement;
-  private artworks: THREE.Object3D | null = null;
   private active: ActiveView | null = null;
   /** False durante l'avvicinamento: zoom e spostamenti partono quando la camera è arrivata. */
   private ready = false;
@@ -131,19 +130,6 @@ export class ArtworkViewer {
   /** False se il visitatore ha nascosto la scheda per vedere tutto il quadro. */
   get infoVisible(): boolean {
     return this.showInfo;
-  }
-
-  /** Indica il gruppo che contiene i quadri appesi, su cui si cercano i clic. */
-  setArtworks(root: THREE.Object3D): void {
-    this.artworks = root;
-  }
-
-  /** Gestisce un clic o un tocco sulla scena: apre la vista ravvicinata se colpisce un quadro senza visita guidata. */
-  handleTap(pointer: THREE.Vector2): boolean {
-    if (this.active || !this.artworks) return false;
-    const group = pickArtwork(pointer, this.museum.camera, this.artworks);
-    if (!group || artworkOf(group).tour?.length) return false;
-    return this.requestStart(group);
   }
 
   /** Apre la vista ravvicinata se il visitatore è vicino al cordone, altrimenti lo invita ad avvicinarsi. */
@@ -194,6 +180,22 @@ export class ArtworkViewer {
     this.cameraTween = tweenCamera(this.museum.camera, viewing.returnPosition, viewing.returnQuaternion, this.options.approachDuration, () => {
       this.controls.enabled = true;
     });
+  }
+
+  /**
+   * Chiude la vista lasciando la camera dov'è, per passare alla visita guidata dello stesso quadro: restituisce il
+   * punto da cui il visitatore era partito, dove la visita lo riporterà alla fine.
+   */
+  handOff(): { position: THREE.Vector3; quaternion: THREE.Quaternion } | null {
+    const viewing = this.active;
+    if (!viewing) return null;
+    this.active = null;
+    this.ready = false;
+    this.pointers.clear();
+    this.panel.hide();
+    this.canvas.style.cursor = '';
+    this.cameraTween?.kill();
+    return { position: viewing.returnPosition, quaternion: viewing.returnQuaternion };
   }
 
   /**

@@ -1,6 +1,6 @@
 # OpenMuseum – 3D Virtual Museum
 
-A 3D virtual museum you can walk through in the browser, on desktop and mobile. Pick the art movements you want to walk through, and the museum builds a sequence of small rooms to explore in first person, each painting shown at its real size with a gilded frame, a spotlight and a wall label. Walk up to the rope in front of a painting and click it to start a guided tour: the camera glides in and zooms on its details while a narrator reads the explanation aloud (currently available for *The Calling of Saint Matthew*).
+A 3D virtual museum you can walk through in the browser, on desktop and mobile. Pick the art movements you want to walk through, and the museum builds a sequence of small rooms to explore in first person, each painting shown at its real size with a gilded frame, a spotlight and a wall label. Walk up to the rope in front of a painting and click it to see it full screen, or press the gold "Audioguida" button above its label to start the audio guide: the camera glides in and zooms on its details while a narrator reads the explanation aloud (available for 27 key works, at least three for every art movement).
 
 ## Features
 
@@ -8,11 +8,11 @@ A 3D virtual museum you can walk through in the browser, on desktop and mobile. 
 - **Rooms connected by doors:** the rooms are laid out on a near-square floor plan instead of a single corridor: the route winds north through one column of rooms, turns, comes back south through the next, and so on. Walk from one room to the next; a sign above each door names the room beyond it, and a banner announces the room you enter. Walls come in three quiet tones (gray, light green and beige), changing from one art movement to the next.
 - **Progressive loading:** only the rooms around the visitor are built, and only the current and adjacent rooms download their images; farther rooms are taken down and their textures freed. While the visitor is still choosing the route, the images of the chosen works already download in the background, in room order, so the first room is often ready as soon as the museum is created. A fixed pool of spotlights, one per painting a room can hold, follows the visitor from room to room, so the lighting cost stays that of a single room and no shaders are recompiled.
 - **Welcome screen:** after the route page, shows how to move, look around and start a tour, with instructions tailored to desktop or touch screens and a progress bar while the first room loads. The `?` button opens it again at any time, and lets you change the route and rebuild the museum.
-- **Artwork info card:** standing at the rope in front of a painting and looking at it opens a card with its author, title, date, size, location and a short description, plus a button to start its guided tour or, for paintings without one, the close-up view (`Enter` on desktop).
-- **Close-up view:** standing at the rope, clicking or tapping a painting without a guided tour fills the screen with it, centered, with its info card on top (the `i` button hides it). Zoom toward any point with the mouse wheel, a pinch or a double click, drag to explore the details, and press `Esc` or the close button to step back to where you were.
-- **Minimap:** a top-down map of the current room, with its doors, shows where you are and which way you are looking, with the painting whose card is open highlighted and the room's name below.
-- **Guided tour markers:** paintings with a tour have a gold ▶ badge with a pulsing ring next to their label, and are marked in gold on the minimap.
-- **Guided tours:** clicking or tapping a painting while standing near its rope, or using the button in its info card, starts a step-by-step tour (from farther away, a hint asks you to come closer). For each step the camera animates to a detail defined in the artwork's data, the detail is highlighted, and a subtitle is shown and read aloud with the Web Speech API. The tour advances on its own and can be paused, stepped back and forth, or closed (keyboard: arrows, `Space`, `Esc`).
+- **Artwork info card:** standing at the rope in front of a painting and looking at it opens a card with its author, title, date, size, location and a short description, plus a large button with headphones to start its audio guide, if it has one, or one for the close-up view (`Enter` on desktop).
+- **Close-up view:** standing at the rope, clicking or tapping any painting fills the screen with it, centered, with no narration and its info card on top (the `i` button hides it). Zoom toward any point with the mouse wheel, a pinch or a double click, drag to explore the details, and press `Esc` or the close button to step back to where you were. For paintings with an audio guide, the card's button (or `Enter`) starts it from there, and at the end brings you back to the rope.
+- **Minimap:** a top-down map of the current room, with its doors, shows where you are and which way you are looking, with the painting whose card is open highlighted and the room's name below. Clicking or tapping it (or pressing `M`) enlarges it: the works are numbered in front of their wall, in gold those with a guided tour, next to a list with title, artist and date; hovering a work in the list or on the map highlights it in both.
+- **Audio guide button:** paintings with a guided tour have a gold "Audioguida" button with headphones above their label, with a pulsing outline; clicking or tapping it from the rope starts the tour. They are also marked in gold on the minimap.
+- **Guided tours (audio guide):** the audio guide button above the label, or the one in the info card, starts a step-by-step tour while standing near the rope (from farther away, a hint asks you to come closer). For each step the camera animates to a detail defined in the artwork's data, the detail is highlighted, and a subtitle is shown and read aloud with the Web Speech API. The tour advances on its own and can be paused, stepped back and forth, or closed (keyboard: arrows, `Space`, `Esc`).
 - **First-person exploration** with keyboard and mouse on desktop, and a virtual joystick plus drag-to-look on touch screens.
 - **Collisions** with walls and velvet-rope barriers that keep visitors at a realistic distance from the paintings.
 - **Content managed in a headless CMS:** artworks, images and guided tours live in [Sanity](https://www.sanity.io) and are edited in Sanity Studio, a web form with validation. A published change shows up in the museum on the next page load, with no rebuild or redeploy. Frame, spotlight and label are generated automatically from the data.
@@ -57,8 +57,10 @@ The artworks are read from the Sanity project configured in the `sanity` section
 | Move          | `W` `A` `S` `D` or arrow keys | Joystick in the bottom-left corner |
 | Look around   | Mouse                        | Drag a finger on the screen    |
 | Release mouse | `Esc`                        | —                              |
-| Guided tour   | Stand near the rope of a painting marked "▶ Visita guidata" on its label, then click it | Stand near the rope, then tap the painting |
+| Close-up      | Stand near the rope and click a painting | Stand near the rope, then tap the painting |
+| Audio guide   | Stand near the rope and click the gold "Audioguida" button above the label, or press `Enter` (also from the close-up) | Tap the "Audioguida" button above the label, or the one on the info card |
 | During a tour | Buttons, or `←` `→` to change step, `Space` to pause, `Esc` to exit | Buttons |
+| Room map      | `M` to open and close (or click the minimap when the mouse is free), `Esc` to close | Tap the minimap |
 
 ## Settings
 
@@ -132,7 +134,7 @@ src/
 ├─ artworks/      Artwork loading and validation, frames, labels, tour badges and click picking
 ├─ tour/          Guided tour: camera animation, detail highlight, narration
 ├─ viewer/        Close-up view: framing, zoom and pan
-├─ ui/            On-screen interface: start page, minimap, artwork card, crosshair, tour and close-up panels
+├─ ui/            On-screen interface: start page, minimap and room map, artwork card, crosshair, tour and close-up panels
 ├─ data/          Museum settings and the list of art movements
 └─ utils/         Helper functions
 studio/           Sanity Studio: the schema of the artworks and the editing interface

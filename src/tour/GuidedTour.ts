@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Artwork, TourStop } from '../artworks/artworksData';
 import { CANVAS_OFFSET, frameWidthFor } from '../artworks/createArtwork';
-import { artworkOf, pickArtwork } from '../artworks/pickArtwork';
+import { artworkOf } from '../artworks/pickArtwork';
 import { isNearArtwork } from '../artworks/proximity';
 import type { PlayerControls } from '../controls/PlayerControls';
 import { language } from '../i18n/language';
@@ -68,7 +68,6 @@ export class GuidedTour {
   private readonly narrator = new Narrator(t().speech);
   // WeakMap: quando una sala viene smontata, le evidenziazioni dei suoi quadri se ne vanno con loro.
   private readonly highlights = new WeakMap<THREE.Object3D, Highlight>();
-  private artworks: THREE.Object3D | null = null;
   private active: ActiveTour | null = null;
   /** Aumenta a ogni cambio di tappa, pausa o uscita: le attese ancora in corso capiscono di essere superate. */
   private generation = 0;
@@ -96,21 +95,6 @@ export class GuidedTour {
     return this.active !== null;
   }
 
-  /** Indica il gruppo che contiene i quadri appesi, su cui si cercano i clic. */
-  setArtworks(root: THREE.Object3D): void {
-    this.artworks = root;
-  }
-
-  /**
-   * Gestisce un clic o un tocco sulla scena: se colpisce un quadro con visita guidata e il visitatore
-   * è vicino al cordone la avvia; se è lontano lo invita ad avvicinarsi.
-   */
-  handleTap(pointer: THREE.Vector2): boolean {
-    if (this.active) return false;
-    const group = this.pickTourArtwork(pointer);
-    return group ? this.requestStart(group) : false;
-  }
-
   /** Avvia la visita del quadro se il visitatore è vicino al cordone, altrimenti lo invita ad avvicinarsi. */
   requestStart(group: THREE.Object3D): boolean {
     if (!this.isNear(group)) {
@@ -126,7 +110,11 @@ export class GuidedTour {
     return isNearArtwork(group, this.museum.camera.position, this.reach);
   }
 
-  start(group: THREE.Object3D): void {
+  /**
+   * Avvia la visita. `from` è il punto a cui tornare alla fine, se il visitatore non è più dov'era partito:
+   * per esempio quando la visita parte dalla vista ravvicinata dello stesso quadro.
+   */
+  start(group: THREE.Object3D, from?: { position: THREE.Vector3; quaternion: THREE.Quaternion }): void {
     const artwork = artworkOf(group);
     if (this.active || !artwork.tour?.length) return;
 
@@ -146,8 +134,8 @@ export class GuidedTour {
       paused: false,
       finished: false,
       highlight: this.highlightFor(group, artwork),
-      returnPosition: camera.position.clone(),
-      returnQuaternion: camera.quaternion.clone(),
+      returnPosition: (from?.position ?? camera.position).clone(),
+      returnQuaternion: (from?.quaternion ?? camera.quaternion).clone(),
     };
     this.panel.show(artwork);
     this.goTo(0, this.options.approachDuration);
@@ -286,12 +274,6 @@ export class GuidedTour {
       this.highlights.set(group, highlight);
     }
     return highlight;
-  }
-
-  private pickTourArtwork(pointer: THREE.Vector2): THREE.Object3D | null {
-    if (!this.artworks) return null;
-    const group = pickArtwork(pointer, this.museum.camera, this.artworks);
-    return group && artworkOf(group).tour?.length ? group : null;
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {

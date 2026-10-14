@@ -5,7 +5,7 @@ import '@fontsource/source-sans-3/latin-600.css';
 import './style.css';
 import { loadArtworks, type Artwork } from './artworks/artworksData';
 import { prefetchImages } from './artworks/imageCache';
-import { artworkOf, pickArtwork } from './artworks/pickArtwork';
+import { artworkOf, pickArtworkPart, type ArtworkPart } from './artworks/pickArtwork';
 import { isNearArtwork } from './artworks/proximity';
 import { animateTourBadges } from './artworks/tourBadge';
 import { PlayerControls } from './controls/PlayerControls';
@@ -13,7 +13,7 @@ import { MOVEMENTS } from './data/movements';
 import { settings } from './data/settings';
 import { onLanguageChange } from './i18n/language';
 import { t } from './i18n/strings';
-import { movementFacets, planRooms, roomTitle } from './rooms/plan';
+import { compareByYear, movementFacets, planRooms, roomTitle } from './rooms/plan';
 import { RoomManager, type RoomInfo } from './rooms/RoomManager';
 import { Museum } from './scene/Museum';
 import { createReflectionMap } from './scene/reflections';
@@ -22,6 +22,7 @@ import { AimHint, type AimTarget } from './ui/AimHint';
 import { ArtworkCard } from './ui/ArtworkCard';
 import { createControlsHint } from './ui/ControlsHint';
 import { Minimap } from './ui/Minimap';
+import { RoomMap } from './ui/RoomMap';
 import { StartScreen } from './ui/StartScreen';
 import { Toast } from './ui/Toast';
 import { ArtworkViewer } from './viewer/ArtworkViewer';
@@ -37,11 +38,11 @@ const reflections = createReflectionMap(museum.renderer);
 // Luce diffusa per tutto il museo: calda dall'alto; dal basso il riflesso chiaro di pavimento e pareti.
 museum.scene.add(new THREE.HemisphereLight(0xfffaf2, 0xd9d3cb, settings.lights.ambientIntensity));
 
-// In alto a destra: la mappa della sala e, sotto, il pulsante che riapre le istruzioni.
+// In alto a destra: la mappa della sala, che toccata si ingrandisce, e sotto il pulsante che riapre le istruzioni.
 const hud = document.createElement('div');
 hud.className = 'hud';
 container.append(hud);
-const minimap = new Minimap(hud);
+const minimap = new Minimap(hud, () => openRoomMap());
 const toast = new Toast(container);
 
 // Le sale si generano dalle tappe scelte nel menu iniziale; sono costruite solo quelle vicine al visitatore.
@@ -112,7 +113,8 @@ function minimapRoom(room: RoomInfo, total: number) {
     doors: [room.doors.previous, room.doors.next].filter((wall) => wall !== undefined),
     artWalls: room.layout.artWalls,
     walls: rooms.roomOf(room.index)!.walls,
-    artworks: room.layout.placed,
+    // Sulla mappa grande le opere sono numerate in ordine di data, che è l'ordine in cui si incontrano camminando.
+    artworks: [...room.layout.placed].sort((a, b) => compareByYear(a.artwork, b.artwork)),
     caption: t().room.caption(room.index + 1, total, roomTitle(room)),
   };
 }
@@ -129,19 +131,27 @@ onLanguageChange(() => {
 const reach = settings.barriers.distance + settings.barriers.maxDistanceFromRope;
 const isNear = (group: THREE.Object3D) => isNearArtwork(group, museum.camera.position, reach);
 
-// Clic (o tocco) su un quadro: la visita guidata se ha delle tappe, altrimenti la vista ravvicinata.
-const card = new ArtworkCard(container, controls, {
-  startTour: (group) => tour.requestStart(group),
-  view: (group) => viewer.requestStart(group),
-});
+/** Avvia l'audioguida. Dalla vista a tutto schermo parte da dove si è, e alla fine riporta il visitatore al cordone. */
+const startTour = (group: THREE.Object3D) => {
+  const from = viewer.group === group ? viewer.handOff() : null;
+  if (from) tour.start(group, from);
+  else tour.requestStart(group);
+};
+const card = new ArtworkCard(container, controls, { startTour, view: (group) => viewer.requestStart(group) });
 const tour = new GuidedTour({ museum, controls, toast, parent: container, reach, options: settings.tour });
 const viewer = new ArtworkViewer({ museum, controls, toast, parent: container, reach, options: settings.viewer });
-tour.setArtworks(rooms.artworksRoot);
-viewer.setArtworks(rooms.artworksRoot);
-controls.onTap = (pointer) => tour.handleTap(pointer) || viewer.handleTap(pointer);
+// La mappa grande della sala va sopra tutto il resto dell'interfaccia.
+const roomMap = new RoomMap(container, controls);
+// Clic (o tocco) sulla scena: il pulsante dell'audioguida, sopra la targhetta, fa partire la spiegazione; il quadro si
+// apre a tutto schermo, senza voce, anche se ha l'audioguida.
+controls.onTap = (pointer) => {
+  const hit = pickArtworkPart(pointer, museum.camera, rooms.artworksRoot);
+  if (!hit) return false;
+  return hit.part === 'badge' ? tour.requestStart(hit.group) : viewer.requestStart(hit.group);
+};
 
-/** Avvia l'azione del quadro: la visita guidata se ce l'ha, altrimenti la vista ravvicinata. */
-const openArtwork = (group: THREE.Object3D) => (artworkOf(group).tour?.length ? tour.requestStart(group) : viewer.requestStart(group));
+/** L'azione principale della scheda: l'audioguida se il quadro ce l'ha, altrimenti la vista a tutto schermo. */
+const openArtwork = (group: THREE.Object3D) => (artworkOf(group).tour?.length ? startTour(group) : viewer.requestStart(group));
 
 // A ogni frame: sale da costruire o smontare, scheda (del quadro guardato al centro dello schermo, o di quello
 // nella vista ravvicinata), mappa, mirino e bollini delle visite guidate.
@@ -152,27 +162,52 @@ museum.onUpdate((delta) => {
   rooms.update(museum.camera.position, delta);
   viewer.update(delta);
   const exploring = controls.enabled && !tour.isActive;
-  const looked = exploring ? pickArtwork(SCREEN_CENTER, museum.camera, rooms.artworksRoot) : null;
+  const hit = exploring ? pickArtworkPart(SCREEN_CENTER, museum.camera, rooms.artworksRoot) : null;
+  const looked = hit?.group ?? null;
   const near = looked !== null && isNear(looked);
   const focused = viewer.group ?? (near ? looked : null);
   card.update(focused, exploring || (viewer.isActive && viewer.infoVisible), viewer.isActive);
   minimap.update(museum.camera, focused && artworkOf(focused).id, exploring);
-  aimHint.update(controls.isLocked && exploring, aimTarget(looked, near));
+  roomMap.update(museum.camera);
+  aimHint.update(controls.isLocked && exploring, aimTarget(hit, near));
   elapsed += delta;
   animateTourBadges(elapsed);
 });
 
-function aimTarget(group: THREE.Object3D | null, near: boolean): AimTarget {
-  if (!group) return 'none';
-  if (artworkOf(group).tour?.length) return near ? 'tour-near' : 'tour-far';
-  return near ? 'view-near' : 'none';
+/** L'invito sotto il mirino: il pulsante dell'audioguida la avvia, il quadro si apre a tutto schermo; da lontano, avvicinarsi. */
+function aimTarget(hit: { group: THREE.Object3D; part: ArtworkPart } | null, near: boolean): AimTarget {
+  if (!hit) return 'none';
+  if (hit.part === 'badge') return near ? 'tour-near' : 'tour-far';
+  if (near) return 'view-near';
+  return artworkOf(hit.group).tour?.length ? 'tour-far' : 'none';
 }
 
-// Su PC, con la scheda aperta, Invio fa come il pulsante della scheda.
+/** Apre la mappa grande della sala in cui si trova il visitatore, se sta esplorando. Restituisce true se l'ha aperta. */
+function openRoomMap(): boolean {
+  const room = rooms.current;
+  if (!room || !controls.enabled || tour.isActive || viewer.isActive || roomMap.isOpen) return false;
+  roomMap.open(minimapRoom(room, rooms.rooms.length));
+  return true;
+}
+
+// Su PC il tasto M apre la mappa grande; a chiuderla ci pensa la mappa stessa, con M o con Esc.
 document.addEventListener('keydown', (event) => {
-  if (event.code !== 'Enter' || event.repeat || event.target instanceof HTMLButtonElement) return;
-  if (!controls.enabled || tour.isActive || !card.current) return;
-  openArtwork(card.current);
+  if (event.code !== 'KeyM' || event.repeat || event.defaultPrevented || event.target instanceof HTMLInputElement) return;
+  if (openRoomMap()) event.preventDefault();
+});
+
+// Su PC Invio fa come il pulsante della scheda: l'audioguida se il quadro ce l'ha, altrimenti la vista a tutto schermo.
+// Anche dalla vista a tutto schermo Invio fa partire l'audioguida.
+document.addEventListener('keydown', (event) => {
+  if (event.code !== 'Enter' || event.repeat || event.target instanceof HTMLButtonElement || tour.isActive) return;
+  const viewing = viewer.group;
+  if (viewing) {
+    if (!artworkOf(viewing).tour?.length) return;
+    startTour(viewing);
+  } else {
+    if (!controls.enabled || !card.current) return;
+    openArtwork(card.current);
+  }
   event.preventDefault();
 });
 
@@ -189,5 +224,5 @@ loadArtworks(settings.sanity, MOVEMENTS.map((movement) => movement.id))
     startScreen.setCatalogError();
   });
 
-// In sviluppo `museum`, `controls`, `rooms`, `tour`, `viewer` e `startScreen` sono raggiungibili dalla console del browser, per il debug.
-if (import.meta.env.DEV) Object.assign(window, { museum, controls, rooms, tour, viewer, startScreen });
+// In sviluppo `museum`, `controls`, `rooms`, `tour`, `viewer`, `roomMap` e `startScreen` sono raggiungibili dalla console del browser, per il debug.
+if (import.meta.env.DEV) Object.assign(window, { museum, controls, rooms, tour, viewer, roomMap, startScreen });

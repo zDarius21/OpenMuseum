@@ -3,7 +3,7 @@ import { createMoldingGeometry, type ProfilePoint } from '../scene/molding';
 import { SPOT_TRACK_DISTANCE, type Wall } from '../scene/Room';
 import type { Artwork } from './artworksData';
 import { createLabel, LABEL_CENTER_HEIGHT, LABEL_GAP, LABEL_HEIGHT, LABEL_WIDTH } from './label';
-import { BADGE_RADIUS, createTourBadge, releaseTourBadge } from './tourBadge';
+import { AUDIO_BUTTON_HEIGHT, AUDIO_BUTTON_WIDTH, createTourBadge, releaseTourBadge } from './tourBadge';
 
 /** Elementi condivisi da tutti i quadri. */
 export interface ArtworkContext {
@@ -32,7 +32,7 @@ const FRAME_DEPTH_RATIO = 0.45;
 const REBATE = 0.01;
 /** Distanza della tela dal muro, rientrata rispetto al fronte della cornice. */
 export const CANVAS_OFFSET = 0.02;
-/** Spazio tra la targhetta e il bollino della visita guidata. */
+/** Spazio tra la targhetta e il pulsante dell'audioguida. */
 const BADGE_GAP = 0.04;
 
 /** Lunghezza dello stelo che regge il faretto sotto il binario: con il binario a 1,55 m dal muro il faretto è inclinato
@@ -85,10 +85,12 @@ export function frameWidthFor(artwork: Pick<Artwork, 'width' | 'height'>): numbe
   return 0.05 + 0.04 * Math.max(artwork.width, artwork.height);
 }
 
-/** Quanto occupa l'opera sulla parete a sinistra e a destra del suo centro, targhetta compresa. */
-export function horizontalExtent(artwork: Pick<Artwork, 'width' | 'height'>): { left: number; right: number } {
+/** Quanto occupa l'opera sulla parete a sinistra e a destra del suo centro, targhetta (e pulsante dell'audioguida) compresa. */
+export function horizontalExtent(artwork: Pick<Artwork, 'width' | 'height' | 'tour'>): { left: number; right: number } {
   const halfOuterWidth = artwork.width / 2 + frameWidthFor(artwork);
-  return { left: halfOuterWidth, right: halfOuterWidth + LABEL_GAP + LABEL_WIDTH };
+  // Il pulsante, più largo della targhetta, la supera di poco a destra.
+  const overhang = artwork.tour?.length ? Math.max(0, (AUDIO_BUTTON_WIDTH - LABEL_WIDTH) / 2) : 0;
+  return { left: halfOuterWidth, right: halfOuterWidth + LABEL_GAP + LABEL_WIDTH + overhang };
 }
 
 /**
@@ -129,12 +131,12 @@ export function createArtwork(
   label.position.set(artwork.width / 2 + frameWidth + LABEL_GAP + LABEL_WIDTH / 2, LABEL_CENTER_HEIGHT - centerHeight, 0);
   group.add(label);
 
-  // Sopra la targhetta, allineato a sinistra, il bollino delle opere con visita guidata.
+  // Sopra la targhetta, centrato su di lei, il pulsante dell'audioguida delle opere con visita narrata.
   if (artwork.tour?.length) {
     const badge = createTourBadge();
     badge.position.set(
-      artwork.width / 2 + frameWidth + LABEL_GAP + BADGE_RADIUS,
-      LABEL_CENTER_HEIGHT + LABEL_HEIGHT / 2 + BADGE_GAP + BADGE_RADIUS - centerHeight,
+      label.position.x,
+      LABEL_CENTER_HEIGHT + LABEL_HEIGHT / 2 + BADGE_GAP + AUDIO_BUTTON_HEIGHT / 2 - centerHeight,
       0,
     );
     group.add(badge);

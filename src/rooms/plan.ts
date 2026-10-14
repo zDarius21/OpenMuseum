@@ -64,9 +64,15 @@ export function planRooms(artworks: readonly Artwork[], route: ReadonlySet<strin
 }
 
 function sortByYear(artworks: readonly Artwork[]): Artwork[] {
-  // Le opere senza data vanno in fondo; a parità di anno decide il titolo italiano, così l'ordine non cambia
-  // tra una visita e l'altra, né cambiando lingua.
-  return [...artworks].sort((a, b) => (yearOf(a) ?? Infinity) - (yearOf(b) ?? Infinity) || a.texts.it.title.localeCompare(b.texts.it.title, 'it'));
+  return [...artworks].sort(compareByYear);
+}
+
+/**
+ * Per ordinare le opere per data. Quelle senza data vanno in fondo; a parità di anno decide il titolo italiano, così
+ * l'ordine non cambia tra una visita e l'altra, né cambiando lingua.
+ */
+export function compareByYear(a: Artwork, b: Artwork): number {
+  return (yearOf(a) ?? Infinity) - (yearOf(b) ?? Infinity) || a.texts.it.title.localeCompare(b.texts.it.title, 'it');
 }
 
 /** Divide in gruppi di al massimo `size`, il più possibile uguali: 13 opere da 6 diventano 5 + 4 + 4, non 6 + 6 + 1. */

@@ -4,6 +4,7 @@ import { movementName, type Movement } from '../data/movements';
 import { language, LANGUAGES, onLanguageChange, setLanguage, type Language } from '../i18n/language';
 import { t } from '../i18n/strings';
 import { artistOf, artistsOf, type MovementFacet } from '../rooms/plan';
+import { HEADPHONES_ICON } from './icons';
 import { ProgressBar, type ProgressBarOptions } from './ProgressBar';
 
 export interface StartScreenOptions {
@@ -28,7 +29,7 @@ const STEP_ICONS = [
   svg('<path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'),
   svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>'),
   svg('<circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5M10.5 8v5M8 10.5h5"/>'),
-  '<span class="start__badge" aria-hidden="true"></span>',
+  `<span class="start__badge" aria-hidden="true">${HEADPHONES_ICON}</span>`,
   svg('<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"/><path d="M9 3v15M15 6v15"/>'),
 ];
 

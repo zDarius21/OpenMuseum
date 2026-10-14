@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { formatYear, t } from '../i18n/strings';
+import { formatYear } from '../i18n/strings';
 import { createTextureCanvas } from '../utils/textureCanvas';
 import { textsOf, type Artwork } from './artworksData';
 
@@ -19,7 +19,6 @@ const PADDING = 40;
 const BACKGROUND = '#2b2724';
 const TEXT_COLOR = '#f4efe6';
 const MUTED_COLOR = '#b8ad9f';
-const ACCENT_COLOR = '#e0bd6e';
 const SERIF = "Georgia, 'Times New Roman', serif";
 const SANS = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
 
@@ -75,7 +74,7 @@ function drawLabel(artwork: Artwork): HTMLCanvasElement {
     titleLines = wrap(ctx, title, `italic ${titleSize}px ${SERIF}`, maxWidth);
   }
 
-  // Ogni riga può avere tratti di colore diverso (l'anno e l'indicazione della visita guidata).
+  // Ogni riga può avere tratti di colore diverso. L'audioguida ha il suo pulsante sopra la targhetta.
   type Segment = { text: string; color: string };
   const lines: { segments: Segment[]; font: string; height: number; spaceBefore: number }[] = [];
   if (author) lines.push({ segments: [{ text: author.toUpperCase(), color: TEXT_COLOR }], font: `600 50px ${SANS}`, height: 58, spaceBefore: 0 });
@@ -89,7 +88,6 @@ function drawLabel(artwork: Artwork): HTMLCanvasElement {
   );
   const footer: Segment[] = [];
   if (year) footer.push({ text: year, color: MUTED_COLOR });
-  if (artwork.tour?.length) footer.push({ text: `${year ? '  ·  ' : ''}${t().artwork.labelTour}`, color: ACCENT_COLOR });
   if (footer.length) lines.push({ segments: footer, font: `42px ${SANS}`, height: 48, spaceBefore: 14 });
 
   // Blocco di testo centrato in verticale, allineato a sinistra.

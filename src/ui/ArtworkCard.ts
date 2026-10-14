@@ -4,6 +4,7 @@ import { textsOf, type Artwork } from '../artworks/artworksData';
 import type { PlayerControls } from '../controls/PlayerControls';
 import { language, locale, onLanguageChange, type Language } from '../i18n/language';
 import { formatYear, t } from '../i18n/strings';
+import { HEADPHONES_ICON } from './icons';
 
 /** Quanto resta visibile la scheda, in millisecondi, dopo aver distolto lo sguardo: evita lampeggi tra un quadro e l'altro. */
 const HIDE_DELAY = 600;
@@ -15,7 +16,7 @@ export interface ArtworkCardActions {
 
 /**
  * Scheda dell'opera davanti a cui ci si è fermati: autore, titolo, anno, misure, luogo, descrizione e il pulsante
- * della visita guidata, oppure, per i quadri senza visita, quello per guardarli da vicino.
+ * dell'audioguida, se c'è; per i quadri senza audioguida, quello per vederli a tutto schermo.
  */
 export class ArtworkCard {
   private readonly controls: PlayerControls;
@@ -102,13 +103,21 @@ export class ArtworkCard {
     const text = t().card;
     const meta = [artwork.year === undefined ? '' : formatYear(artwork.year), formatSize(artwork)].filter(Boolean).join(' · ');
     const stops = artwork.tour?.length ?? 0;
-    // Su PC si può usare anche Invio, mentre il puntatore è bloccato e il pulsante non si può cliccare.
+    // Su PC Invio fa come il pulsante: serve mentre il puntatore è bloccato e il pulsante non si può cliccare.
     const shortcut = this.touch ? '' : `<kbd>${text.enterKey}</kbd>`;
     let action = '';
     if (stops) {
+      // L'audioguida ha un pulsante grande, con le cuffie come quello sulla parete: il quadro, cliccato, si apre a
+      // tutto schermo senza voce.
       action = `
-        <button type="button" class="card__button" data-action="tour"><span>${text.startTour}</span>${shortcut}</button>
-        <p class="card__note">${text.tourNote(stops)}</p>`;
+        <button type="button" class="card__audio" data-action="tour">
+          <span class="card__audio-icon">${HEADPHONES_ICON}</span>
+          <span class="card__audio-text">
+            <span class="card__audio-title">${text.startTour}</span>
+            <span class="card__audio-note">${text.tourNote(stops)}</span>
+          </span>
+          ${shortcut}
+        </button>`;
     } else if (!this.viewing) {
       action = `<button type="button" class="card__button card__button--view" data-action="view"><span>${text.view}</span>${shortcut}</button>`;
     }

@@ -1,8 +1,8 @@
 import { t } from '../i18n/strings';
 
 /**
- * Cosa si sta mirando: niente di particolare, un quadro con visita guidata da vicino o da lontano,
- * oppure da vicino un quadro senza visita, che si può guardare da vicino.
+ * Cosa si sta mirando: niente di particolare, il pulsante dell'audioguida da vicino o da lontano (da lontano anche il
+ * quadro che ce l'ha), oppure da vicino un quadro, che si apre a tutto schermo.
  */
 export type AimTarget = 'none' | 'tour-near' | 'tour-far' | 'view-near';
 
