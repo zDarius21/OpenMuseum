@@ -1,15 +1,10 @@
-import type { Artwork } from '../artworks/artworksData';
+import { textsOf, type Artwork } from '../artworks/artworksData';
 import type { PlayerControls } from '../controls/PlayerControls';
-import type { Movement } from '../data/movements';
-import { artistOf, type MovementFacet } from '../rooms/plan';
+import { movementName, type Movement } from '../data/movements';
+import { language, LANGUAGES, onLanguageChange, setLanguage, type Language } from '../i18n/language';
+import { t } from '../i18n/strings';
+import { artistOf, artistsOf, type MovementFacet } from '../rooms/plan';
 import { ProgressBar, type ProgressBarOptions } from './ProgressBar';
-
-interface Step {
-  icon: string;
-  title: string;
-  desktop: string;
-  touch: string;
-}
 
 export interface StartScreenOptions {
   loadingBar: ProgressBarOptions;
@@ -27,44 +22,21 @@ export interface StartScreenOptions {
 const svg = (paths: string) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 
-const STEPS: Step[] = [
-  {
-    icon: svg('<path d="M12 3v18M3 12h18M12 3 9 6M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>'),
-    title: 'Muoviti',
-    desktop: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> o le frecce; le porte portano alle altre sale',
-    touch: 'Usa il joystick in basso a sinistra; le porte portano alle altre sale',
-  },
-  {
-    icon: svg('<path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'),
-    title: 'Guardati intorno',
-    desktop: 'Muovi il mouse; <kbd>Esc</kbd> lo libera',
-    touch: 'Trascina il dito sullo schermo',
-  },
-  {
-    icon: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>'),
-    title: 'Scopri le opere',
-    desktop: 'Fermati al cordone davanti a un quadro e guardalo: compare la sua scheda',
-    touch: 'Fermati al cordone davanti a un quadro e inquadralo: compare la sua scheda',
-  },
-  {
-    icon: svg('<circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5M10.5 8v5M8 10.5h5"/>'),
-    title: 'Guarda da vicino',
-    desktop: 'Dal cordone clicca un quadro: rotellina per ingrandire, trascina per spostarti',
-    touch: 'Dal cordone tocca un quadro: pizzica per ingrandire, trascina per spostarti',
-  },
-  {
-    icon: '<span class="start__badge" aria-hidden="true"></span>',
-    title: 'Visite guidate',
-    desktop: 'Le opere con questo simbolo hanno una visita narrata: avvicinati al cordone e clicca il quadro',
-    touch: 'Le opere con questo simbolo hanno una visita narrata: avvicinati al cordone e tocca il quadro',
-  },
-  {
-    icon: svg('<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"/><path d="M9 3v15M15 6v15"/>'),
-    title: 'Orientati',
-    desktop: 'La mappa in alto a destra mostra la sala in cui sei e dove stai guardando',
-    touch: 'La mappa in alto a destra mostra la sala in cui sei e dove stai guardando',
-  },
+/** Le icone dei passi delle istruzioni, nello stesso ordine dei testi in src/i18n/strings.ts. */
+const STEP_ICONS = [
+  svg('<path d="M12 3v18M3 12h18M12 3 9 6M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>'),
+  svg('<path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'),
+  svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>'),
+  svg('<circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5M10.5 8v5M8 10.5h5"/>'),
+  '<span class="start__badge" aria-hidden="true"></span>',
+  svg('<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"/><path d="M9 3v15M15 6v15"/>'),
 ];
+
+/** Il nome di ogni lingua nella lingua stessa, per il selettore, con la sigla che si vede sul pulsante. */
+const LANGUAGE_NAMES: Record<Language, { name: string; short: string }> = {
+  it: { name: 'Italiano', short: 'IT' },
+  en: { name: 'English', short: 'EN' },
+};
 
 /** Il segno di spunta delle tappe e delle opere scelte. */
 const CHECK = svg('<path d="m5.5 12.5 4 4.5 9-10.5"/>');
@@ -78,12 +50,14 @@ const MIN_QUERY = 2;
  * si mette nel percorso o si toglie da sola; il cerchio della corrente e gli artisti le scelgono a gruppi.
  * Il secondo sono le istruzioni, con l'avanzamento del caricamento della prima sala. Dal pulsante «?» si
  * riaprono le istruzioni e si può cambiare il percorso; finché la schermata è aperta il visitatore resta fermo.
+ * In alto, su tutti e due i passi, si sceglie la lingua del sito.
  */
 export class StartScreen {
   private readonly controls: PlayerControls;
   private readonly options: StartScreenOptions;
   private readonly root: HTMLElement;
   private readonly search: HTMLInputElement;
+  private readonly languages: HTMLElement;
   private readonly route: HTMLElement;
   private readonly status: HTMLElement;
   private readonly timeline: HTMLElement;
@@ -112,8 +86,9 @@ export class StartScreen {
   private step: 'route' | 'guide' = 'route';
   /** Stato del museo: da creare, in preparazione (prima sala in caricamento), pronto. */
   private museum: 'none' | 'loading' | 'ready' = 'none';
-  /** Il riepilogo del museo pronto, per esempio «5 sale · 30 opere». */
-  private readySummary = '';
+  /** Sale e opere del museo pronto, per il riepilogo «5 sale · 30 opere». */
+  private readySize = { rooms: 0, artworks: 0 };
+  private catalogStatus: 'loading' | 'empty' | 'error' | 'ready' = 'loading';
   private open = true;
 
   /** `hud` è il contenitore in cui va il pulsante per riaprire le istruzioni. */
@@ -128,36 +103,42 @@ export class StartScreen {
     this.root.innerHTML = `
       <header class="start__header">
         <p class="start__logo">OpenMuseum</p>
-        <input class="start__search" type="search" placeholder="Cerca un titolo o un artista" aria-label="Cerca un titolo o un artista" autocomplete="off" enterkeyhint="search" />
+        <input class="start__search" type="search" autocomplete="off" enterkeyhint="search" />
+        <div class="languages" role="group">
+          ${LANGUAGES.map(
+            (code) => `<button type="button" class="languages__button" data-language="${code}" lang="${code}" aria-label="${LANGUAGE_NAMES[code].name}" title="${LANGUAGE_NAMES[code].name}">${LANGUAGE_NAMES[code].short}</button>`,
+          ).join('')}
+        </div>
       </header>
       <main class="start__main">
         <section class="start__route">
-          <h1 class="start__title" id="start-route-title">Scegli le tappe del tuo percorso</h1>
-          <p class="start__lead">Ogni corrente che tocchi diventa una sala, nell'ordine in cui si sono succedute.</p>
-          <p class="start__status" aria-live="polite">Caricamento del catalogo…</p>
+          <h1 class="start__title" id="start-route-title" data-text="routeTitle"></h1>
+          <p class="start__lead" data-text="routeLead"></p>
+          <p class="start__status" aria-live="polite"></p>
           <div class="timeline-scroll"><ol class="timeline"></ol></div>
           <div class="artists"></div>
           <ul class="works" id="start-works"></ul>
         </section>
         <section class="start__guide" hidden>
-          <h1 class="start__title" id="start-guide-title">Come si visita</h1>
+          <h1 class="start__title" id="start-guide-title" data-text="guideTitle"></h1>
           <ul class="start__steps"></ul>
         </section>
       </main>
       <footer class="start__footer">
         <div class="start__state">
           <p class="start__summary" aria-live="polite"></p>
-          <div class="start__progress" aria-label="Caricamento della prima sala"><div class="start__bar"></div></div>
+          <div class="start__progress"><div class="start__bar"></div></div>
         </div>
         <div class="start__actions">
-          <button type="button" class="start__link" data-action="back">Torna al museo</button>
-          <button type="button" class="start__link" data-action="route">Cambia il percorso</button>
-          <button type="button" class="start__button" data-action="create">Inizia il percorso</button>
+          <button type="button" class="start__link" data-action="back" data-text="back"></button>
+          <button type="button" class="start__link" data-action="route" data-text="changeRoute"></button>
+          <button type="button" class="start__button" data-action="create" data-text="create"></button>
           <button type="button" class="start__button" data-action="enter"></button>
         </div>
       </footer>`;
     const find = <T extends HTMLElement>(selector: string) => this.root.querySelector<T>(selector)!;
     this.search = find('.start__search');
+    this.languages = find('.languages');
     this.route = find('.start__route');
     this.status = find('.start__status');
     this.timeline = find('.timeline');
@@ -178,10 +159,12 @@ export class StartScreen {
     this.helpButton.type = 'button';
     this.helpButton.className = 'help-button';
     this.helpButton.textContent = '?';
-    this.helpButton.setAttribute('aria-label', 'Istruzioni');
-    this.helpButton.title = 'Istruzioni';
     hud.append(this.helpButton);
 
+    this.languages.addEventListener('click', (event) => {
+      const code = (event.target as HTMLElement).closest<HTMLElement>('[data-language]')?.dataset.language;
+      if (code) setLanguage(code as Language);
+    });
     this.timeline.addEventListener('click', this.onTimelineClick);
     this.artists.addEventListener('click', this.onArtistsClick);
     this.works.addEventListener('click', this.onWorksClick);
@@ -206,9 +189,10 @@ export class StartScreen {
     });
     // Le istruzioni cambiano se si passa dal mouse al touch, e il pulsante «?» si nasconde durante le visite guidate.
     controls.onStateChange(() => this.render());
+    onLanguageChange(() => this.applyLanguage());
 
     this.controls.enabled = false;
-    this.render();
+    this.applyLanguage();
   }
 
   get isOpen(): boolean {
@@ -220,7 +204,8 @@ export class StartScreen {
     this.facets = facets;
     for (const facet of facets) for (const artwork of facet.artworks) this.entries.set(artwork.id, { artwork, facet });
     const first = facets.find((facet) => facet.artworks.length > 0);
-    this.status.textContent = first ? '' : 'Il catalogo è ancora vuoto';
+    this.catalogStatus = first ? 'ready' : 'empty';
+    this.renderStatus();
     if (first) {
       this.selectMovement(first);
       this.focused = first.movement.id;
@@ -230,7 +215,8 @@ export class StartScreen {
   }
 
   setCatalogError(): void {
-    this.status.textContent = 'Impossibile caricare il catalogo: riprova più tardi';
+    this.catalogStatus = 'error';
+    this.renderStatus();
   }
 
   /** A che punto è la preparazione della prima sala. Il testo non lo dice: la barra corre più del caricamento vero. */
@@ -239,11 +225,11 @@ export class StartScreen {
     this.bar.set(total > 0 ? done / total : 0);
   }
 
-  /** La prima sala è pronta: `summary` è per esempio «5 sale · 30 opere». Il museo si apre quando la barra è piena. */
-  setReady(summary: string): void {
+  /** La prima sala è pronta: il museo ha `rooms` sale e `artworks` opere. Si può entrare quando la barra è piena. */
+  setReady(rooms: number, artworks: number): void {
     this.bar.complete(() => {
       this.museum = 'ready';
-      this.readySummary = summary;
+      this.readySize = { rooms, artworks };
       this.render();
       if (this.open && this.step === 'guide') this.enterButton.focus({ preventScroll: true });
     });
@@ -351,28 +337,59 @@ export class StartScreen {
       this.renderSummary();
       return;
     }
-    this.summary.textContent = loading ? 'Preparazione della prima sala…' : this.readySummary;
+    const text = t().start;
+    this.summary.textContent = loading ? text.preparingFirstRoom : text.ready(this.readySize.rooms, this.readySize.artworks);
     this.enterButton.disabled = loading;
-    this.enterButton.textContent = loading ? 'Caricamento…' : 'Entra nel museo';
+    this.enterButton.textContent = loading ? text.loading : text.enter;
     const touch = this.controls.isTouchMode;
-    this.steps.innerHTML = STEPS.map(
-      (step) => `
+    this.steps.innerHTML = text.steps
+      .map(
+        (step, index) => `
         <li class="start__step">
-          <span class="start__icon">${step.icon}</span>
+          <span class="start__icon">${STEP_ICONS[index]}</span>
           <span><strong>${step.title}</strong><span class="start__text">${touch ? step.touch : step.desktop}</span></span>
         </li>`,
-    ).join('');
+      )
+      .join('');
+  }
+
+  /** Mette nella lingua scelta i testi fissi della pagina e ridisegna il resto. */
+  private applyLanguage(): void {
+    const text = t().start;
+    document.title = t().page.title;
+    document.querySelector('meta[name="description"]')?.setAttribute('content', t().page.description);
+    for (const element of this.root.querySelectorAll<HTMLElement>('[data-text]')) {
+      element.textContent = text[element.dataset.text as 'routeTitle' | 'routeLead' | 'guideTitle' | 'back' | 'changeRoute' | 'create'];
+    }
+    this.search.placeholder = text.search;
+    this.search.setAttribute('aria-label', text.search);
+    this.languages.setAttribute('aria-label', t().language.group);
+    for (const button of this.languages.querySelectorAll<HTMLButtonElement>('[data-language]')) {
+      button.setAttribute('aria-pressed', String(button.dataset.language === language()));
+    }
+    this.progress.setAttribute('aria-label', text.loadingFirstRoom);
+    this.helpButton.setAttribute('aria-label', text.help);
+    this.helpButton.title = text.help;
+    this.renderStatus();
+    this.render();
+    if (this.open && this.step === 'route') this.renderRoute();
+  }
+
+  /** Sotto il titolo: il catalogo in arrivo, vuoto o irraggiungibile. */
+  private renderStatus(): void {
+    const text = t().start;
+    const messages = { loading: text.loadingCatalog, empty: text.emptyCatalog, error: text.catalogError, ready: '' };
+    this.status.textContent = messages[this.catalogStatus];
   }
 
   /** «2 tappe · 38 opere · 5 sale», e il pulsante per partire. */
   private renderSummary(): void {
     const stops = this.facets.filter(({ movement }) => this.isSelected(movement.id)).length;
     const { artworks, rooms } = this.options.preview(this.routeIds());
-    let text = '';
-    if (this.facets.length > 0) {
-      text = stops === 0 ? 'Scegli almeno una tappa' : [count(stops, 'tappa', 'tappe'), count(artworks, 'opera', 'opere'), count(rooms, 'sala', 'sale')].join(' · ');
-    }
-    this.summary.textContent = text;
+    const text = t().start;
+    let summary = '';
+    if (this.facets.length > 0) summary = stops === 0 ? text.chooseStop : [text.stops(stops), text.works(artworks), text.rooms(rooms)].join(' · ');
+    this.summary.textContent = summary;
     this.createButton.disabled = artworks === 0;
   }
 
@@ -385,8 +402,8 @@ export class StartScreen {
           <li class="stop" style="--tint: ${movement.color}">
             <button type="button" class="stop__button" data-movement="${movement.id}" aria-controls="start-works"${empty ? ' disabled' : ''}>
               <span class="stop__dot" aria-hidden="true">${CHECK}</span>
-              <span class="stop__name">${movement.name}</span>
-              <span class="stop__count">${empty ? 'nessuna opera' : count(artworks.length, 'opera', 'opere')}</span>
+              <span class="stop__name">${movementName(movement)}</span>
+              <span class="stop__count">${empty ? t().start.noWorks : t().start.works(artworks.length)}</span>
             </button>
           </li>`;
       })
@@ -410,11 +427,11 @@ export class StartScreen {
     for (const pill of this.artists.querySelectorAll<HTMLButtonElement>('[data-artist]')) {
       const artist = pill.dataset.artist!;
       const full = this.artistWorks(artist).every((artwork) => this.isChosen(artwork));
-      const alone = this.searching || artist === '' || facet?.artists.length === 1;
+      const alone = this.searching || artist === '' || (facet !== undefined && artistsOf(facet.artworks).length === 1);
       pill.setAttribute('aria-pressed', String(alone ? full : full && !all));
     }
     const counter = this.artists.querySelector('[data-counter]');
-    if (facet && counter) counter.textContent = `${count(chosen, 'opera', 'opere')} su ${facet.artworks.length} nel percorso`;
+    if (facet && counter) counter.textContent = t().start.chosen(chosen, facet.artworks.length);
 
     for (const button of this.works.querySelectorAll<HTMLButtonElement>('[data-artwork]')) {
       const { artwork } = this.entries.get(button.dataset.artwork!)!;
@@ -442,12 +459,14 @@ export class StartScreen {
       return;
     }
     const pill = (artist: string, label: string) => `<button type="button" class="pill" data-artist="${escapeHtml(artist)}">${escapeHtml(label)}</button>`;
+    const artists = artistsOf(facet.artworks);
+    const label = facet.movement.artists[language()];
     this.artists.style.setProperty('--tint', facet.movement.color);
     this.artists.setAttribute('role', 'group');
-    this.artists.setAttribute('aria-label', `Artisti ${facet.movement.ofName}`);
+    this.artists.setAttribute('aria-label', label);
     // Con un solo artista «Tutti» farebbe lo stesso: c'è solo il suo pulsante.
-    const pills = (facet.artists.length > 1 ? pill('', 'Tutti') : '') + facet.artists.map(({ name }) => pill(name, name)).join('');
-    this.artists.innerHTML = `<span class="artists__label">Artisti ${facet.movement.ofName}:</span>${pills}<span class="artists__count" data-counter></span>`;
+    const pills = (artists.length > 1 ? pill('', t().start.all) : '') + artists.map((name) => pill(name, name)).join('');
+    this.artists.innerHTML = `<span class="artists__label">${escapeHtml(label)}:</span>${pills}<span class="artists__count" data-counter></span>`;
     this.works.innerHTML = facet.artworks.map((artwork) => workItem(artwork, facet.movement, false)).join('');
     this.renderSelection();
   }
@@ -456,7 +475,7 @@ export class StartScreen {
   private renderSearch(): void {
     const query = normalize(this.query.trim());
     const results = this.facets.flatMap((facet) =>
-      facet.artworks.filter((artwork) => normalize(`${artwork.title} ${artistOf(artwork)}`).includes(query)).map((artwork) => ({ artwork, facet })),
+      facet.artworks.filter((artwork) => normalize(`${textsOf(artwork).title} ${artistOf(artwork)}`).includes(query)).map((artwork) => ({ artwork, facet })),
     );
     // Gli artisti trovati, ognuno con il colore della prima corrente in cui compare.
     const artists = new Map<string, Movement>();
@@ -464,12 +483,13 @@ export class StartScreen {
       const name = artistOf(artwork);
       if (!artists.has(name) && normalize(name).includes(query)) artists.set(name, facet.movement);
     }
-    const found = results.length === 0 ? 'Nessuna opera trovata' : count(results.length, 'opera trovata', 'opere trovate');
+    const text = t().start;
+    const found = text.found(results.length);
     if (artists.size > 0) {
       this.artists.setAttribute('role', 'group');
-      this.artists.setAttribute('aria-label', 'Artisti trovati');
+      this.artists.setAttribute('aria-label', text.artistsFound);
       this.artists.innerHTML = `
-        <span class="artists__label">Artisti:</span>
+        <span class="artists__label">${text.artists}</span>
         ${[...artists].map(([name, movement]) => `<button type="button" class="pill" data-artist="${escapeHtml(name)}" style="--tint: ${movement.color}">${escapeHtml(name)}</button>`).join('')}
         <span class="artists__count">${found}</span>`;
     } else {
@@ -477,7 +497,7 @@ export class StartScreen {
       this.artists.removeAttribute('aria-label');
       this.artists.innerHTML = `
         <span class="artists__label">${found}</span>
-        ${results.length > 0 ? '<span class="artists__hint">Scegli quelle da mettere nel percorso</span>' : ''}`;
+        ${results.length > 0 ? `<span class="artists__hint">${text.pickResults}</span>` : ''}`;
     }
     this.works.innerHTML = results.map(({ artwork, facet }) => workItem(artwork, facet.movement, true)).join('');
     this.renderSelection();
@@ -521,7 +541,7 @@ export class StartScreen {
       for (const artwork of works) this.chosenOf(artwork.movement).delete(artwork.id);
     } else {
       const facet = this.focusedFacet;
-      const onlyThis = !this.searching && artist !== '' && facet !== undefined && facet.artists.length > 1;
+      const onlyThis = !this.searching && artist !== '' && facet !== undefined && artistsOf(facet.artworks).length > 1;
       if (onlyThis && facet.artworks.every((artwork) => this.isChosen(artwork))) this.chosenOf(facet.movement.id).clear();
       for (const artwork of works) this.chosenOf(artwork.movement).add(artwork.id);
     }
@@ -553,20 +573,16 @@ export class StartScreen {
 /** La scheda di un'opera: tutta la scheda è un pulsante che la mette nel percorso o la toglie. Nella ricerca dice anche la corrente. */
 function workItem(artwork: Artwork, movement: Movement, withMovement: boolean): string {
   const image = artwork.thumb ? `<img class="work__image" src="${escapeHtml(artwork.thumb)}" alt="" loading="lazy" decoding="async" />` : '';
-  const label = [artwork.title, artistOf(artwork), ...(withMovement ? [movement.name] : [])].join(', ');
+  const { title } = textsOf(artwork);
+  const label = [title, artistOf(artwork), ...(withMovement ? [movementName(movement)] : [])].join(', ');
   return `
     <li class="work" style="--tint: ${movement.color}">
       <button type="button" class="work__pick" data-artwork="${escapeHtml(artwork.id)}" aria-label="${escapeHtml(label)}"></button>
       <span class="work__frame">${image}<span class="work__check" aria-hidden="true">${CHECK}</span></span>
-      <span class="work__title">${escapeHtml(artwork.title)}</span>
+      <span class="work__title">${escapeHtml(title)}</span>
       <span class="work__artist">${escapeHtml(artistOf(artwork))}</span>${withMovement ? `
-      <span class="work__movement">${movement.name}</span>` : ''}
+      <span class="work__movement">${movementName(movement)}</span>` : ''}
     </li>`;
-}
-
-/** «1 opera», «12 opere». */
-function count(value: number, one: string, many: string): string {
-  return `${value} ${value === 1 ? one : many}`;
 }
 
 /** Per la ricerca: minuscole e senza accenti, così «rococo» trova «Rococò». */

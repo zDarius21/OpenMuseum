@@ -50,6 +50,8 @@ export interface Room {
   setDoorClosed(side: 'south' | 'north', closed: boolean): void;
   /** Mette o toglie le transenne, con le loro collisioni: la sala nasce vuota. */
   setBarriers(present: boolean): void;
+  /** Rifà i cartelli sopra le porte, per esempio in un'altra lingua. */
+  setSigns(signs: RoomOptions['signs']): void;
   /** Libera la memoria della scheda grafica quando la sala viene smontata. */
   dispose(): void;
 }
@@ -170,19 +172,31 @@ export function createRoom(options: RoomOptions): Room {
   };
   const closures = { south: endWall(south, -1, options.doors.south), north: endWall(north, 1, options.doors.north) };
 
-  // Cartelli sopra le porte, sulla faccia interna.
+  // Cartelli sopra le porte, sulla faccia interna. Cambiando lingua si rifanno.
   const signY = door.height + CASING_WIDTH + 0.12 + SIGN_HEIGHT / 2;
-  for (const [text, face, inward] of [
-    [options.signs.south, south, -1],
-    [options.signs.north, north, 1],
-  ] as const) {
-    if (!text) continue;
-    const sign = createSign(text, maxAnisotropy);
-    sign.position.set(0, signY, face + inward * 0.01);
-    if (inward < 0) sign.rotation.y = Math.PI;
-    group.add(sign);
-    disposables.push(sign.geometry, sign.material as THREE.Material, (sign.material as THREE.MeshStandardMaterial).map!);
-  }
+  let signs: THREE.Mesh[] = [];
+  const setSigns = (texts: RoomOptions['signs']): void => {
+    for (const sign of signs) {
+      group.remove(sign);
+      const material = sign.material as THREE.MeshStandardMaterial;
+      sign.geometry.dispose();
+      material.map?.dispose();
+      material.dispose();
+    }
+    signs = [];
+    for (const [text, face, inward] of [
+      [texts.south, south, -1],
+      [texts.north, north, 1],
+    ] as const) {
+      if (!text) continue;
+      const sign = createSign(text, maxAnisotropy);
+      sign.position.set(0, signY, face + inward * 0.01);
+      if (inward < 0) sign.rotation.y = Math.PI;
+      group.add(sign);
+      signs.push(sign);
+    }
+  };
+  setSigns(options.signs);
 
   // Transenne lungo le pareti lunghe, da una parete di fondo all'altra: le porte restano libere.
   // Si mettono solo nelle sale arredate: quelle vuote si vedono da lontano, attraverso le porte.
@@ -229,8 +243,10 @@ export function createRoom(options: RoomOptions): Room {
       if (closure) closure.visible = closed;
     },
     setBarriers,
+    setSigns,
     dispose: () => {
       setBarriers(false);
+      setSigns({});
       for (const item of disposables) item.dispose();
     },
   };

@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { onLanguageChange } from '../i18n/language';
+import { t } from '../i18n/strings';
 import type { PlacedArtwork } from '../rooms/layout';
 import type { Wall, WallId } from '../scene/Room';
 
@@ -54,7 +56,9 @@ export class Minimap {
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'minimap';
     this.canvas.setAttribute('role', 'img');
-    this.canvas.setAttribute('aria-label', 'Mappa della sala');
+    const setLabel = () => this.canvas.setAttribute('aria-label', t().room.map);
+    setLabel();
+    onLanguageChange(setLabel);
     this.canvas.hidden = true;
     const ctx = this.canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D non disponibile');

@@ -15,7 +15,7 @@ function wait(ms: number): Promise<void> {
 export class Narrator {
   rate = 1;
 
-  private readonly lang: string;
+  private lang: string;
   private readonly synth: SpeechSynthesis | null = 'speechSynthesis' in window ? window.speechSynthesis : null;
   private voice: SpeechSynthesisVoice | null = null;
   /** Aumenta a ogni nuova lettura o interruzione: le letture superate si fermano da sole. */
@@ -23,11 +23,19 @@ export class Narrator {
   /** Letture in corso, tenute in memoria: in Chrome una lettura senza riferimenti può perdere l'evento di fine. */
   private readonly pending = new Set<SpeechSynthesisUtterance>();
 
-  constructor(lang = 'it-IT') {
+  /** `lang` è un codice come «it-IT» o «en-US». */
+  constructor(lang: string) {
     this.lang = lang;
     this.pickVoice();
     // In Chrome l'elenco delle voci arriva dopo il caricamento della pagina.
     this.synth?.addEventListener('voiceschanged', () => this.pickVoice());
+  }
+
+  /** Cambia la lingua delle prossime letture, e la voce. */
+  setLanguage(lang: string): void {
+    if (lang === this.lang) return;
+    this.lang = lang;
+    this.pickVoice();
   }
 
   /** Legge il testo. Restituisce true se la lettura è arrivata alla fine, false se è stata interrotta. */
@@ -80,11 +88,16 @@ export class Narrator {
     });
   }
 
-  /** Sceglie una voce nella lingua giusta, preferendo quelle di qualità migliore. */
+  /**
+   * Sceglie una voce nella lingua giusta, preferendo quelle di qualità migliore e, a parità, quelle della stessa
+   * variante (per «en-US» una voce americana prima di una inglese).
+   */
   private pickVoice(): void {
     const prefix = this.lang.slice(0, 2).toLowerCase();
+    const sameVariant = (voice: SpeechSynthesisVoice) => voice.lang.replace('_', '-').toLowerCase() === this.lang.toLowerCase();
     const voices = this.synth?.getVoices().filter((voice) => voice.lang.toLowerCase().startsWith(prefix)) ?? [];
-    this.voice = voices.find((voice) => /natural|google/i.test(voice.name)) ?? voices[0] ?? null;
+    const good = voices.filter((voice) => /natural|google/i.test(voice.name));
+    this.voice = good.find(sameVariant) ?? good[0] ?? voices.find(sameVariant) ?? voices[0] ?? null;
   }
 }
 

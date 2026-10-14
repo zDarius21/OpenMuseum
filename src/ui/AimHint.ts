@@ -1,13 +1,16 @@
+import { t } from '../i18n/strings';
+
 /**
  * Cosa si sta mirando: niente di particolare, un quadro con visita guidata da vicino o da lontano,
  * oppure da vicino un quadro senza visita, che si può guardare da vicino.
  */
 export type AimTarget = 'none' | 'tour-near' | 'tour-far' | 'view-near';
 
-const LABELS: Record<Exclude<AimTarget, 'none'>, string> = {
-  'tour-near': 'Clic per la visita guidata',
-  'tour-far': 'Avvicinati per la visita guidata',
-  'view-near': 'Clic per guardarlo da vicino',
+/** L'invito per ogni bersaglio, nella lingua scelta. */
+const LABELS: Record<Exclude<AimTarget, 'none'>, () => string> = {
+  'tour-near': () => t().aim.tourNear,
+  'tour-far': () => t().aim.tourFar,
+  'view-near': () => t().aim.viewNear,
 };
 
 /** Mirino al centro dello schermo quando il puntatore è bloccato, con l'invito a cliccare se si mira un quadro abbastanza vicino. */
@@ -31,6 +34,6 @@ export class AimHint {
     this.crosshair.hidden = !visible;
     this.crosshair.classList.toggle('crosshair--active', target === 'tour-near' || target === 'view-near');
     this.label.hidden = !visible || target === 'none';
-    if (target !== 'none') this.label.textContent = LABELS[target];
+    if (target !== 'none') this.label.textContent = LABELS[target]();
   }
 }

@@ -1,4 +1,5 @@
-import type { Artwork } from '../artworks/artworksData';
+import { textsOf, type Artwork } from '../artworks/artworksData';
+import { formatYear, t } from '../i18n/strings';
 
 export interface TourPanelActions {
   previous(): void;
@@ -25,11 +26,11 @@ export class TourPanel {
   private readonly previousButton: HTMLButtonElement;
   private readonly playButton: HTMLButtonElement;
   private readonly nextButton: HTMLButtonElement;
+  private readonly exitButton: HTMLButtonElement;
 
   constructor(parent: HTMLElement, actions: TourPanelActions) {
     this.root = element('section', 'tour');
     this.root.hidden = true;
-    this.root.setAttribute('aria-label', 'Visita guidata');
 
     const header = element('header', 'tour__header');
     const heading = element('div', 'tour__heading');
@@ -44,20 +45,27 @@ export class TourPanel {
     this.subtitle.setAttribute('aria-live', 'polite');
 
     const buttons = element('div', 'tour__buttons');
-    this.previousButton = button('‹ Indietro', 'Tappa precedente', actions.previous);
-    this.playButton = button('', '', actions.togglePause);
-    this.nextButton = button('Avanti ›', 'Tappa successiva', actions.next);
-    const exitButton = button('✕ Esci', 'Esci dalla visita guidata', actions.exit);
-    exitButton.classList.add('tour__button--exit');
-    buttons.append(this.previousButton, this.playButton, this.nextButton, exitButton);
+    this.previousButton = button(actions.previous);
+    this.playButton = button(actions.togglePause);
+    this.nextButton = button(actions.next);
+    this.exitButton = button(actions.exit);
+    this.exitButton.classList.add('tour__button--exit');
+    buttons.append(this.previousButton, this.playButton, this.nextButton, this.exitButton);
 
     this.root.append(header, this.subtitle, buttons);
     parent.append(this.root);
   }
 
+  /** Apre il pannello, con i testi nella lingua scelta: durante la visita la lingua non si può cambiare. */
   show(artwork: Artwork): void {
-    this.title.textContent = artwork.title;
-    this.author.textContent = [artwork.author, artwork.year].filter(Boolean).join(', ');
+    const { title, author } = textsOf(artwork);
+    const text = t().tour;
+    this.title.textContent = title;
+    this.author.textContent = [author, artwork.year === undefined ? '' : formatYear(artwork.year)].filter(Boolean).join(', ');
+    this.root.setAttribute('aria-label', text.label);
+    label(this.previousButton, text.previous, text.previousLabel);
+    label(this.nextButton, text.next, text.nextLabel);
+    label(this.exitButton, text.exit, text.exitLabel);
     this.root.hidden = false;
   }
 
@@ -66,11 +74,10 @@ export class TourPanel {
     this.subtitle.textContent = state.text;
     this.previousButton.disabled = state.index === 0;
     this.nextButton.disabled = state.index === state.total - 1;
-    let [label, description] = ['❚❚ Pausa', 'Metti in pausa'];
-    if (state.finished) [label, description] = ['↺ Ricomincia', 'Ricomincia la visita'];
-    else if (state.paused) [label, description] = ['▶ Riprendi', 'Riprendi la visita'];
-    this.playButton.textContent = label;
-    this.playButton.setAttribute('aria-label', description);
+    const text = t().tour;
+    if (state.finished) label(this.playButton, text.restart, text.restartLabel);
+    else if (state.paused) label(this.playButton, text.resume, text.resumeLabel);
+    else label(this.playButton, text.pause, text.pauseLabel);
   }
 
   hide(): void {
@@ -91,11 +98,9 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: strin
   return node;
 }
 
-function button(text: string, ariaLabel: string, onClick: () => void): HTMLButtonElement {
+function button(onClick: () => void): HTMLButtonElement {
   const node = element('button', 'tour__button');
   node.type = 'button';
-  node.textContent = text;
-  if (ariaLabel) node.setAttribute('aria-label', ariaLabel);
   node.addEventListener('click', (event) => {
     onClick();
     // Dopo un clic con mouse o dito il pulsante perde il focus, altrimenti Spazio (pausa) lo riattiverebbe.
@@ -103,4 +108,10 @@ function button(text: string, ariaLabel: string, onClick: () => void): HTMLButto
     if (event.detail > 0) node.blur();
   });
   return node;
+}
+
+/** Il testo del pulsante e la sua descrizione per i lettori di schermo. */
+function label(node: HTMLButtonElement, text: string, ariaLabel: string): void {
+  node.textContent = text;
+  node.setAttribute('aria-label', ariaLabel);
 }

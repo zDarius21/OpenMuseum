@@ -1,7 +1,9 @@
 import type * as THREE from 'three';
 import { artworkOf } from '../artworks/pickArtwork';
-import type { Artwork } from '../artworks/artworksData';
+import { textsOf, type Artwork } from '../artworks/artworksData';
 import type { PlayerControls } from '../controls/PlayerControls';
+import { language, locale, onLanguageChange, type Language } from '../i18n/language';
+import { formatYear, t } from '../i18n/strings';
 
 /** Quanto resta visibile la scheda, in millisecondi, dopo aver distolto lo sguardo: evita lampeggi tra un quadro e l'altro. */
 const HIDE_DELAY = 600;
@@ -22,6 +24,7 @@ export class ArtworkCard {
   private group: THREE.Object3D | null = null;
   private touch = false;
   private viewing = false;
+  private language: Language = language();
   private hideAt: number | null = null;
 
   constructor(parent: HTMLElement, controls: PlayerControls, actions: ArtworkCardActions) {
@@ -30,8 +33,10 @@ export class ArtworkCard {
     this.root = document.createElement('section');
     this.root.className = 'card';
     this.root.hidden = true;
-    this.root.setAttribute('aria-label', "Scheda dell'opera");
     this.root.setAttribute('aria-live', 'polite');
+    const setLabel = () => this.root.setAttribute('aria-label', t().card.label);
+    setLabel();
+    onLanguageChange(setLabel);
     this.root.addEventListener('click', (event) => {
       const target = event.target as HTMLElement;
       const action = target.closest<HTMLElement>('[data-action]')?.dataset.action;
@@ -66,10 +71,11 @@ export class ArtworkCard {
 
     this.hideAt = null;
     const touch = this.controls.isTouchMode;
-    if (group !== this.group || touch !== this.touch || viewing !== this.viewing) {
+    if (group !== this.group || touch !== this.touch || viewing !== this.viewing || language() !== this.language) {
       this.group = group;
       this.touch = touch;
       this.viewing = viewing;
+      this.language = language();
       this.root.classList.toggle('card--viewing', viewing);
       this.render(artworkOf(group));
     }
@@ -81,7 +87,7 @@ export class ArtworkCard {
     const expanded = this.root.classList.toggle('card--expanded');
     const more = this.root.querySelector('.card__more');
     if (!more) return;
-    more.textContent = expanded ? 'Riduci' : 'Leggi tutto';
+    more.textContent = expanded ? t().card.less : t().card.more;
     more.setAttribute('aria-expanded', String(expanded));
   }
 
@@ -92,31 +98,33 @@ export class ArtworkCard {
   }
 
   private render(artwork: Artwork): void {
-    const meta = [artwork.year, formatSize(artwork)].filter(Boolean).join(' · ');
+    const { title, author, location, description } = textsOf(artwork);
+    const text = t().card;
+    const meta = [artwork.year === undefined ? '' : formatYear(artwork.year), formatSize(artwork)].filter(Boolean).join(' · ');
     const stops = artwork.tour?.length ?? 0;
     // Su PC si può usare anche Invio, mentre il puntatore è bloccato e il pulsante non si può cliccare.
-    const shortcut = this.touch ? '' : '<kbd>Invio</kbd>';
+    const shortcut = this.touch ? '' : `<kbd>${text.enterKey}</kbd>`;
     let action = '';
     if (stops) {
       action = `
-        <button type="button" class="card__button" data-action="tour"><span>▶ Avvia la visita guidata</span>${shortcut}</button>
-        <p class="card__note">${stops} tappe, con voce narrante</p>`;
+        <button type="button" class="card__button" data-action="tour"><span>${text.startTour}</span>${shortcut}</button>
+        <p class="card__note">${text.tourNote(stops)}</p>`;
     } else if (!this.viewing) {
-      action = `<button type="button" class="card__button card__button--view" data-action="view"><span>⤢ Guarda da vicino</span>${shortcut}</button>`;
+      action = `<button type="button" class="card__button card__button--view" data-action="view"><span>${text.view}</span>${shortcut}</button>`;
     }
 
-    const description = artwork.description
-      ? `<p class="card__description">${escapeHtml(artwork.description)}</p>
-         <button type="button" class="card__more" aria-expanded="false">Leggi tutto</button>`
+    const more = description
+      ? `<p class="card__description">${escapeHtml(description)}</p>
+         <button type="button" class="card__more" aria-expanded="false">${text.more}</button>`
       : '';
 
     this.root.classList.remove('card--expanded');
     this.root.innerHTML = `
-      ${artwork.author ? `<p class="card__author">${escapeHtml(artwork.author)}</p>` : ''}
-      <h2 class="card__title">${escapeHtml(artwork.title)}</h2>
+      ${author ? `<p class="card__author">${escapeHtml(author)}</p>` : ''}
+      <h2 class="card__title">${escapeHtml(title)}</h2>
       <p class="card__meta">${escapeHtml(meta)}</p>
-      ${artwork.location ? `<p class="card__location">${escapeHtml(artwork.location)}</p>` : ''}
-      ${description}
+      ${location ? `<p class="card__location">${escapeHtml(location)}</p>` : ''}
+      ${more}
       ${action}
       ${sourceLink(artwork.source)}`;
   }
@@ -124,7 +132,7 @@ export class ArtworkCard {
 
 /** Misure come nelle didascalie dei musei: altezza × larghezza, in centimetri. */
 function formatSize({ width, height }: Artwork): string {
-  const cm = (meters: number) => (meters * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 });
+  const cm = (meters: number) => (meters * 100).toLocaleString(locale(), { maximumFractionDigits: 1 });
   return `${cm(height)} × ${cm(width)} cm`;
 }
 
@@ -137,7 +145,7 @@ function sourceLink(source: string | undefined): string {
     return '';
   }
   const name = host.endsWith('wikimedia.org') ? 'Wikimedia Commons' : host;
-  return `<a class="card__source" href="${escapeHtml(source)}" target="_blank" rel="noopener">Immagine: ${escapeHtml(name)} ↗</a>`;
+  return `<a class="card__source" href="${escapeHtml(source)}" target="_blank" rel="noopener">${escapeHtml(t().card.image(name))}</a>`;
 }
 
 /** I testi arrivano da Sanity: vanno inseriti come testo, non come HTML. */

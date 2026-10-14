@@ -1,3 +1,5 @@
+import { language, type Language } from '../i18n/language';
+
 /** Una tappa della visita guidata: un dettaglio del quadro su cui la camera si avvicina. */
 export interface TourStop {
   /** Centro del dettaglio sull'immagine, da 0 a 1 partendo dall'angolo in alto a sinistra. */
@@ -7,22 +9,29 @@ export interface TourStop {
   zoom: number;
   /** Raggio dell'area evidenziata, in frazione del lato più lungo del quadro. Se manca si ricava dallo zoom. */
   radius?: number;
-  /** Testo del sottotitolo, letto anche ad alta voce. */
-  text: string;
+  /** Testo del sottotitolo in ogni lingua, letto anche ad alta voce. */
+  text: Record<Language, string>;
+}
+
+/** I testi di un'opera in una lingua. */
+export interface ArtworkTexts {
+  title: string;
+  author?: string;
+  /** Museo o luogo in cui è conservata l'opera. */
+  location?: string;
+  /** Breve presentazione dell'opera, mostrata nella scheda. */
+  description?: string;
 }
 
 /** Un'opera come arriva da Sanity. */
 export interface Artwork {
   id: string;
-  title: string;
-  author?: string;
+  /** I testi in ogni lingua del sito: quelli non ancora tradotti restano in italiano. Si leggono con textsOf. */
+  texts: Record<Language, ArtworkTexts>;
   /** La corrente: l'id di una di quelle in src/data/movements.ts. */
   movement: string;
+  /** Come su Sanity, in italiano: «1599 circa». Si mostra con formatYear. */
   year?: string | number;
-  /** Museo o luogo in cui è conservata l'opera. */
-  location?: string;
-  /** Breve presentazione dell'opera, mostrata nella scheda. */
-  description?: string;
   /** Indirizzo dell'immagine. Se manca si usa un'immagine simbolica. */
   image?: string;
   /** Miniatura per il menu iniziale, ritagliata al centro. */
@@ -34,6 +43,11 @@ export interface Artwork {
   source?: string;
   /** Tappe della visita guidata, nell'ordine in cui vengono presentate. */
   tour?: TourStop[];
+}
+
+/** I testi dell'opera nella lingua scelta. */
+export function textsOf(artwork: Artwork): ArtworkTexts {
+  return artwork.texts[language()];
 }
 
 /** Il progetto Sanity da cui leggere le opere. */
@@ -66,8 +80,7 @@ export async function loadArtworks(source: ArtworkSource, movements: readonly st
       console.warn(`Sanity, opera n. ${index + 1}${typeof id === 'string' ? ` ("${id}")` : ''} ignorata: ${problem}`);
       return;
     }
-    const artwork = entry as Artwork;
-    if (artwork.tour !== undefined) artwork.tour = validTourStops(artwork);
+    const artwork = withTexts(entry as SanityArtwork);
     ids.add(artwork.id);
     artworks.push(artwork);
   });
@@ -81,14 +94,43 @@ function queryUrl({ projectId, dataset, apiVersion, maxImageSize, thumbnail }: A
   const imageParams = `?fit=max&w=${maxImageSize}&h=${maxImageSize}&auto=format`;
   const thumbParams = `?fit=crop&w=${thumbnail.width}&h=${thumbnail.height}&auto=format`;
   const query = `*[_type == "artwork"] | order(title) {
-    "id": slug.current, title, author, movement, year, location, description,
+    "id": slug.current, title, titleEn, author, authorEn, movement, year, location, locationEn, description, descriptionEn,
     "image": image.asset->url + "${imageParams}",
     "thumb": image.asset->url + "${thumbParams}",
     width, height, source,
-    "tour": tour[] { x, y, zoom, radius, text }
+    "tour": tour[] { x, y, zoom, radius, text, textEn }
   }`;
   // apicdn risponde da una cache vicina al visitatore, che Sanity aggiorna quando si pubblica dallo Studio.
   return `https://${projectId}.apicdn.sanity.io/v${apiVersion}/data/query/${dataset}?query=${encodeURIComponent(query)}`;
+}
+
+/** Un'opera come la restituisce la query: i testi in inglese sono campi a parte, con il suffisso En. */
+type SanityArtwork = Omit<Artwork, 'texts' | 'tour'> &
+  ArtworkTexts & {
+    titleEn?: string;
+    authorEn?: string;
+    locationEn?: string;
+    descriptionEn?: string;
+    tour?: unknown;
+  };
+
+/** Raccoglie i testi per lingua, e tiene solo le tappe valide della visita guidata. */
+function withTexts(entry: SanityArtwork): Artwork {
+  const { title, titleEn, author, authorEn, location, locationEn, description, descriptionEn, tour, ...rest } = entry;
+  const artwork: Artwork = {
+    ...rest,
+    texts: {
+      it: { title, author, location, description },
+      en: {
+        title: orItalian(titleEn, title)!,
+        author: orItalian(authorEn, author),
+        location: orItalian(locationEn, location),
+        description: orItalian(descriptionEn, description),
+      },
+    },
+  };
+  if (tour !== undefined) artwork.tour = validTourStops(artwork.id, tour);
+  return artwork;
 }
 
 /** Sanity restituisce null per i campi lasciati vuoti: qui diventano campi assenti. */
@@ -112,25 +154,33 @@ function findProblem(entry: unknown, usedIds: ReadonlySet<string>, movements: re
   if (!isPositive(fields.width) || !isPositive(fields.height)) return '"width" e "height" devono essere numeri positivi (metri)';
   if (!isText(fields.movement)) return 'manca "movement", la corrente';
   if (!movements.includes(fields.movement)) return `la corrente "${fields.movement}" non è tra quelle di src/data/movements.ts`;
-  for (const key of ['author', 'location', 'description', 'image', 'thumb', 'source']) {
+  for (const key of ['titleEn', 'author', 'authorEn', 'location', 'locationEn', 'description', 'descriptionEn', 'image', 'thumb', 'source']) {
     if (fields[key] !== undefined && typeof fields[key] !== 'string') return `"${key}" deve essere un testo`;
   }
   if (fields.year !== undefined && !isText(fields.year) && typeof fields.year !== 'number') return '"year" deve essere un testo o un numero';
   return null;
 }
 
-/** Tiene solo le tappe valide: una tappa sbagliata non cancella il resto della visita. */
-function validTourStops(artwork: Artwork): TourStop[] {
-  const stops: unknown = artwork.tour;
+/** Tiene solo le tappe valide: una tappa sbagliata non cancella il resto della visita. Il testo inglese che manca resta in italiano. */
+function validTourStops(id: string, stops: unknown): TourStop[] {
   if (!Array.isArray(stops)) {
-    console.warn(`Sanity, "${artwork.id}": "tour" deve essere una lista di tappe, visita ignorata`);
+    console.warn(`Sanity, "${id}": "tour" deve essere una lista di tappe, visita ignorata`);
     return [];
   }
-  return stops.filter((stop: unknown, index): stop is TourStop => {
+  return stops.flatMap((stop: unknown, index) => {
     const problem = findStopProblem(stop);
-    if (problem) console.warn(`Sanity, "${artwork.id}", tappa n. ${index + 1} ignorata: ${problem}`);
-    return problem === null;
+    if (problem) {
+      console.warn(`Sanity, "${id}", tappa n. ${index + 1} ignorata: ${problem}`);
+      return [];
+    }
+    const { text, textEn, ...rest } = stop as Omit<TourStop, 'text'> & { text: string; textEn?: string };
+    return [{ ...rest, text: { it: text, en: orItalian(textEn, text)! } }];
   });
+}
+
+/** Il testo inglese, o quello italiano se la traduzione manca o è vuota. */
+function orItalian(english: string | undefined, italian: string | undefined): string | undefined {
+  return isText(english) ? english : italian;
 }
 
 function findStopProblem(stop: unknown): string | null {
@@ -141,6 +191,7 @@ function findStopProblem(stop: unknown): string | null {
   if (typeof fields.zoom !== 'number' || fields.zoom < 1) return '"zoom" deve essere un numero da 1 in su';
   if (fields.radius !== undefined && !isPositive(fields.radius)) return '"radius" deve essere un numero positivo';
   if (!isText(fields.text)) return 'manca "text"';
+  if (fields.textEn !== undefined && typeof fields.textEn !== 'string') return '"textEn" deve essere un testo';
   return null;
 }
 

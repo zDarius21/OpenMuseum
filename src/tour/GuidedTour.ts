@@ -4,6 +4,8 @@ import { CANVAS_OFFSET, frameWidthFor } from '../artworks/createArtwork';
 import { artworkOf, pickArtwork } from '../artworks/pickArtwork';
 import { isNearArtwork } from '../artworks/proximity';
 import type { PlayerControls } from '../controls/PlayerControls';
+import { language } from '../i18n/language';
+import { t } from '../i18n/strings';
 import { tweenCamera } from '../scene/cameraTween';
 import type { Museum } from '../scene/Museum';
 import type { Toast } from '../ui/Toast';
@@ -63,7 +65,7 @@ export class GuidedTour {
   private readonly reach: number;
   private readonly options: TourOptions;
   private readonly panel: TourPanel;
-  private readonly narrator = new Narrator('it-IT');
+  private readonly narrator = new Narrator(t().speech);
   // WeakMap: quando una sala viene smontata, le evidenziazioni dei suoi quadri se ne vanno con loro.
   private readonly highlights = new WeakMap<THREE.Object3D, Highlight>();
   private artworks: THREE.Object3D | null = null;
@@ -112,7 +114,7 @@ export class GuidedTour {
   /** Avvia la visita del quadro se il visitatore è vicino al cordone, altrimenti lo invita ad avvicinarsi. */
   requestStart(group: THREE.Object3D): boolean {
     if (!this.isNear(group)) {
-      this.toast.show('Avvicinati al cordone davanti al quadro per la visita guidata');
+      this.toast.show(t().tour.tooFar);
       return false;
     }
     this.start(group);
@@ -129,6 +131,8 @@ export class GuidedTour {
     if (this.active || !artwork.tour?.length) return;
 
     this.controls.enabled = false;
+    // La voce nella lingua scelta: durante la visita la lingua non si può cambiare.
+    this.narrator.setLanguage(t().speech);
     // Il mouse serve libero per usare i pulsanti.
     this.controls.unlock();
     this.museum.renderer.domElement.style.cursor = '';
@@ -216,7 +220,7 @@ export class GuidedTour {
   private async narrate(generation: number): Promise<void> {
     const tour = this.active;
     if (!tour) return;
-    const completed = await this.narrator.speak(tour.stops[tour.index].text);
+    const completed = await this.narrator.speak(tour.stops[tour.index].text[language()]);
     const stillCurrent = () => generation === this.generation && this.active === tour && !tour.paused;
     if (!completed || !stillCurrent()) return;
 
@@ -268,7 +272,7 @@ export class GuidedTour {
     this.panel.update({
       index: tour.index,
       total: tour.stops.length,
-      text: tour.stops[tour.index].text,
+      text: tour.stops[tour.index].text[language()],
       paused: tour.paused,
       finished: tour.finished,
     });

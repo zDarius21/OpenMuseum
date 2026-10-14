@@ -38,6 +38,13 @@ const tourStop = defineArrayMember({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: 'textEn',
+      title: 'Testo in inglese',
+      description: 'Lo stesso testo per chi visita il sito in inglese. Se manca si usa quello italiano.',
+      type: 'text',
+      rows: 3,
+    }),
+    defineField({
       name: 'x',
       title: 'Centro x',
       description: "Da 0 (bordo sinistro dell'immagine) a 1 (bordo destro).",
@@ -79,6 +86,12 @@ export const artwork = defineType({
   type: 'document',
   fieldsets: [
     { name: 'card', title: "Scheda dell'opera" },
+    {
+      name: 'english',
+      title: 'In inglese',
+      description: "I testi della scheda per chi visita il sito in inglese. Quelli lasciati vuoti restano in italiano.",
+      options: { collapsible: true, collapsed: true },
+    },
     { name: 'layout', title: 'Misure' },
   ],
   fields: [
@@ -138,6 +151,22 @@ export const artwork = defineType({
       type: 'url',
       fieldset: 'card',
     }),
+    defineField({
+      name: 'titleEn',
+      title: 'Titolo',
+      description: "Il titolo con cui l'opera è nota in inglese, per esempio «The Calling of Saint Matthew».",
+      type: 'string',
+      fieldset: 'english',
+    }),
+    defineField({
+      name: 'authorEn',
+      title: 'Autore',
+      description: 'Solo se in inglese il nome è diverso, per esempio "Titian" per Tiziano.',
+      type: 'string',
+      fieldset: 'english',
+    }),
+    defineField({ name: 'locationEn', title: 'Dove è conservata', description: 'Per esempio "Borghese Gallery, Rome".', type: 'string', fieldset: 'english' }),
+    defineField({ name: 'descriptionEn', title: 'Descrizione', type: 'text', rows: 4, fieldset: 'english' }),
     defineField({
       name: 'width',
       title: 'Larghezza (m)',

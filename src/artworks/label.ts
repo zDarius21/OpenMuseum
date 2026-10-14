@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { formatYear, t } from '../i18n/strings';
 import { createTextureCanvas } from '../utils/textureCanvas';
-import type { Artwork } from './artworksData';
+import { textsOf, type Artwork } from './artworksData';
 
 /** Larghezza della targhetta in metri: più grande di quelle vere, per essere leggibile dallo schermo. */
 export const LABEL_WIDTH = 0.4;
@@ -49,6 +50,13 @@ export function createLabel(artwork: Artwork, maxAnisotropy: number): THREE.Mesh
   return label;
 }
 
+/** Ridisegna la targhetta creata da createLabel, per esempio dopo un cambio di lingua. */
+export function redrawLabel(label: THREE.Mesh, artwork: Artwork): void {
+  const texture = (label.material as THREE.MeshStandardMaterial[])[4].map!;
+  texture.image = drawLabel(artwork);
+  texture.needsUpdate = true;
+}
+
 function drawLabel(artwork: Artwork): HTMLCanvasElement {
   const ctx = createTextureCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -56,21 +64,21 @@ function drawLabel(artwork: Artwork): HTMLCanvasElement {
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   const maxWidth = CANVAS_WIDTH - 2 * PADDING;
-  const author = artwork.author?.toUpperCase();
-  const year = artwork.year === undefined ? undefined : String(artwork.year);
+  const { title, author } = textsOf(artwork);
+  const year = artwork.year === undefined ? undefined : formatYear(artwork.year);
 
   // Il titolo va su due righe al massimo: se non basta, il carattere si rimpicciolisce.
   let titleSize = 64;
-  let titleLines = wrap(ctx, artwork.title, `italic ${titleSize}px ${SERIF}`, maxWidth);
+  let titleLines = wrap(ctx, title, `italic ${titleSize}px ${SERIF}`, maxWidth);
   while (titleLines.length > 2 && titleSize > 44) {
     titleSize -= 2;
-    titleLines = wrap(ctx, artwork.title, `italic ${titleSize}px ${SERIF}`, maxWidth);
+    titleLines = wrap(ctx, title, `italic ${titleSize}px ${SERIF}`, maxWidth);
   }
 
   // Ogni riga può avere tratti di colore diverso (l'anno e l'indicazione della visita guidata).
   type Segment = { text: string; color: string };
   const lines: { segments: Segment[]; font: string; height: number; spaceBefore: number }[] = [];
-  if (author) lines.push({ segments: [{ text: author, color: TEXT_COLOR }], font: `600 50px ${SANS}`, height: 58, spaceBefore: 0 });
+  if (author) lines.push({ segments: [{ text: author.toUpperCase(), color: TEXT_COLOR }], font: `600 50px ${SANS}`, height: 58, spaceBefore: 0 });
   titleLines.forEach((text, index) =>
     lines.push({
       segments: [{ text, color: TEXT_COLOR }],
@@ -81,7 +89,7 @@ function drawLabel(artwork: Artwork): HTMLCanvasElement {
   );
   const footer: Segment[] = [];
   if (year) footer.push({ text: year, color: MUTED_COLOR });
-  if (artwork.tour?.length) footer.push({ text: `${year ? '  ·  ' : ''}▶ Visita guidata`, color: ACCENT_COLOR });
+  if (artwork.tour?.length) footer.push({ text: `${year ? '  ·  ' : ''}${t().artwork.labelTour}`, color: ACCENT_COLOR });
   if (footer.length) lines.push({ segments: footer, font: `42px ${SANS}`, height: 48, spaceBefore: 14 });
 
   // Blocco di testo centrato in verticale, allineato a sinistra.

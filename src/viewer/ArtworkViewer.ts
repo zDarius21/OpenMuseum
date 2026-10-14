@@ -4,6 +4,7 @@ import { CANVAS_OFFSET } from '../artworks/createArtwork';
 import { artworkOf, pickArtwork } from '../artworks/pickArtwork';
 import { isNearArtwork } from '../artworks/proximity';
 import type { PlayerControls } from '../controls/PlayerControls';
+import { t } from '../i18n/strings';
 import { tweenCamera } from '../scene/cameraTween';
 import type { Museum } from '../scene/Museum';
 import type { Toast } from '../ui/Toast';
@@ -148,7 +149,7 @@ export class ArtworkViewer {
   /** Apre la vista ravvicinata se il visitatore è vicino al cordone, altrimenti lo invita ad avvicinarsi. */
   requestStart(group: THREE.Object3D): boolean {
     if (!isNearArtwork(group, this.museum.camera.position, this.reach)) {
-      this.toast.show('Avvicinati al cordone davanti al quadro per guardarlo da vicino');
+      this.toast.show(t().viewer.tooFar);
       return false;
     }
     this.start(group);

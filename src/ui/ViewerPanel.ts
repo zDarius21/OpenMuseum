@@ -1,3 +1,5 @@
+import { t } from '../i18n/strings';
+
 export interface ViewerPanelActions {
   zoomIn(): void;
   zoomOut(): void;
@@ -20,11 +22,11 @@ export class ViewerPanel {
     this.element.className = 'viewer';
     this.element.hidden = true;
     this.element.innerHTML = `
-      <div class="viewer__bar" role="toolbar" aria-label="Vista ravvicinata">
-        <button type="button" class="viewer__button" data-action="zoomOut" aria-label="Riduci" title="Riduci">−</button>
-        <button type="button" class="viewer__button" data-action="zoomIn" aria-label="Ingrandisci" title="Ingrandisci">+</button>
+      <div class="viewer__bar" role="toolbar">
+        <button type="button" class="viewer__button" data-action="zoomOut">−</button>
+        <button type="button" class="viewer__button" data-action="zoomIn">+</button>
         <button type="button" class="viewer__button viewer__button--info" data-action="toggleInfo">i</button>
-        <button type="button" class="viewer__button viewer__button--close" data-action="close">✕ Chiudi</button>
+        <button type="button" class="viewer__button viewer__button--close" data-action="close"></button>
       </div>
       <p class="viewer__hint"></p>`;
     this.hint = this.element.querySelector('.viewer__hint')!;
@@ -40,10 +42,21 @@ export class ViewerPanel {
     });
   }
 
+  /** Apre i comandi, con i testi nella lingua scelta: durante la vista ravvicinata la lingua non si può cambiare. */
   show(touch: boolean): void {
-    this.hint.textContent = touch
-      ? 'Pizzica per ingrandire · trascina per spostarti · doppio tocco per avvicinarti'
-      : 'Rotellina per ingrandire · trascina per spostarti · doppio clic per avvicinarti · Esc per uscire';
+    const text = t().viewer;
+    const find = (selector: string) => this.element.querySelector<HTMLElement>(selector)!;
+    find('.viewer__bar').setAttribute('aria-label', text.label);
+    for (const [action, label] of [
+      ['zoomOut', text.zoomOut],
+      ['zoomIn', text.zoomIn],
+    ]) {
+      const button = find(`[data-action="${action}"]`);
+      button.setAttribute('aria-label', label);
+      button.title = label;
+    }
+    find('[data-action="close"]').textContent = text.close;
+    this.hint.textContent = touch ? text.touchHint : text.desktopHint;
     this.hint.classList.remove('viewer__hint--faded');
     clearTimeout(this.hintTimer);
     this.hintTimer = setTimeout(() => this.hint.classList.add('viewer__hint--faded'), HINT_DURATION);
@@ -57,7 +70,7 @@ export class ViewerPanel {
 
   /** Il pulsante «i» appare premuto quando la scheda è visibile. */
   setInfoVisible(visible: boolean): void {
-    const label = visible ? 'Nascondi la scheda' : 'Mostra la scheda';
+    const label = visible ? t().viewer.hideInfo : t().viewer.showInfo;
     this.infoButton.setAttribute('aria-pressed', String(visible));
     this.infoButton.setAttribute('aria-label', label);
     this.infoButton.title = label;

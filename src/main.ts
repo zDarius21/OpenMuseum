@@ -11,7 +11,9 @@ import { animateTourBadges } from './artworks/tourBadge';
 import { PlayerControls } from './controls/PlayerControls';
 import { MOVEMENTS } from './data/movements';
 import { settings } from './data/settings';
-import { movementFacets, planRooms } from './rooms/plan';
+import { onLanguageChange } from './i18n/language';
+import { t } from './i18n/strings';
+import { movementFacets, planRooms, roomTitle } from './rooms/plan';
 import { RoomManager, type RoomInfo } from './rooms/RoomManager';
 import { Museum } from './scene/Museum';
 import { createReflectionMap } from './scene/reflections';
@@ -94,15 +96,12 @@ async function createMuseum(route: ReadonlySet<string>): Promise<void> {
     if (id === creation) startScreen.setProgress(done, total);
   });
   if (id !== creation) return;
-  const count = rooms.rooms.reduce((sum, room) => sum + room.layout.placed.length, 0);
-  const halls = plans.length === 1 ? 'Una sala' : `${plans.length} sale`;
-  const works = count === 1 ? "un'opera" : `${count} opere`;
-  startScreen.setReady(`${halls} · ${works}`);
+  startScreen.setReady(plans.length, rooms.rooms.reduce((sum, room) => sum + room.layout.placed.length, 0));
 }
 
 /** Il cartello che compare entrando in una sala. */
 function announceRoom(room: RoomInfo, total: number): void {
-  toast.show(`Sala ${room.index + 1} di ${total} · ${room.title}`, 3000);
+  toast.show(t().room.caption(room.index + 1, total, roomTitle(room)), 3000);
 }
 
 function minimapRoom(room: RoomInfo, total: number) {
@@ -115,9 +114,17 @@ function minimapRoom(room: RoomInfo, total: number) {
     doors: { south: room.index > 0, north: room.index < total - 1 },
     walls: rooms.roomOf(room.index)!.walls,
     artworks: room.layout.placed,
-    caption: `Sala ${room.index + 1} di ${total} · ${room.title}`,
+    caption: t().room.caption(room.index + 1, total, roomTitle(room)),
   };
 }
+
+// Cambiando lingua dalla schermata iniziale si rifanno i testi già nel museo: cartelli, targhette e la mappa.
+// La schermata e la scheda dell'opera si aggiornano da sole.
+onLanguageChange(() => {
+  rooms.refreshTexts();
+  const room = rooms.current;
+  if (room) minimap.setRoom(minimapRoom(room, rooms.rooms.length));
+});
 
 // Scheda, visita guidata e vista ravvicinata si aprono solo stando vicino al cordone davanti al quadro.
 const reach = settings.barriers.distance + settings.barriers.maxDistanceFromRope;

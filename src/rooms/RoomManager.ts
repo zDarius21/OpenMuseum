@@ -1,18 +1,18 @@
 import * as THREE from 'three';
 import { clearArtworkTexture, disposeArtwork, setArtworkTexture } from '../artworks/createArtwork';
 import { hangArtworks, loadArtworkTexture, type HangOptions } from '../artworks/hangArtworks';
+import { redrawLabel } from '../artworks/label';
 import { artworkOf } from '../artworks/pickArtwork';
+import { t } from '../i18n/strings';
 import type { BarrierConfig } from '../scene/Barriers';
 import { createRoom, type Room, type RoomConfig } from '../scene/Room';
 import { layoutRoom, type LayoutOptions, type RoomLayout } from './layout';
 import { LightPool } from './LightPool';
-import type { RoomPlan } from './plan';
+import { roomTitle, type RoomPlan } from './plan';
 
-/** Una sala del percorso, costruita o no. */
-export interface RoomInfo {
+/** Una sala del percorso, costruita o no. Il titolo, nella lingua scelta, si ricava con roomTitle. */
+export interface RoomInfo extends Pick<RoomPlan, 'movement' | 'part'> {
   index: number;
-  title: string;
-  subtitle?: string;
   /** Facce interne delle pareti sud e nord, lungo z: le sale vanno verso nord, cioè verso z più piccole. */
   south: number;
   north: number;
@@ -112,7 +112,7 @@ export class RoomManager {
     let south = 0;
     this.slots = plans.map((plan, index) => {
       const layout = layoutRoom(plan.artworks, this.options.layout);
-      const info: RoomInfo = { index, title: plan.title, subtitle: plan.subtitle, south, north: south - layout.depth, layout };
+      const info: RoomInfo = { index, movement: plan.movement, part: plan.part, south, north: south - layout.depth, layout };
       // La sala successiva comincia dall'altra parte della parete nord.
       south = info.north - this.options.room.wallThickness;
       return { info, room: null, artworks: null, images: 'none', generation: 0 };
@@ -232,21 +232,37 @@ export class RoomManager {
     }
   }
 
+  /** Rifà nella lingua scelta i testi delle sale costruite: cartelli sopra le porte e targhette dei quadri. */
+  refreshTexts(): void {
+    for (const slot of this.slots) {
+      slot.room?.setSigns(this.signsOf(slot.info));
+      for (const group of slot.artworks?.children ?? []) {
+        const label = group.getObjectByName('label');
+        if (label instanceof THREE.Mesh) redrawLabel(label, artworkOf(group));
+      }
+    }
+  }
+
+  /** I cartelli sopra le porte di una sala, con il numero e il titolo della sala precedente e di quella successiva. */
+  private signsOf(info: RoomInfo): { south?: string; north?: string } {
+    const previous = this.slots[info.index - 1]?.info;
+    const next = this.slots[info.index + 1]?.info;
+    return {
+      south: previous && t().room.previousSign(previous.index + 1, roomTitle(previous)),
+      north: next && t().room.nextSign(next.index + 1, roomTitle(next)),
+    };
+  }
+
   /** Costruisce la sala vuota: pareti, pavimento, soffitto, porte e cartelli. */
   private build(slot: Slot): void {
     if (slot.room) return;
     const { info } = slot;
-    const previous = this.slots[info.index - 1]?.info;
-    const next = this.slots[info.index + 1]?.info;
     const room = createRoom({
       config: this.options.room,
       depth: info.layout.depth,
       south: info.south,
-      doors: { south: Boolean(previous), north: Boolean(next) },
-      signs: {
-        south: previous && `‹ Sala ${previous.index + 1} · ${previous.title}`,
-        north: next && `Sala ${next.index + 1} · ${next.title} ›`,
-      },
+      doors: { south: info.index > 0, north: info.index < this.slots.length - 1 },
+      signs: this.signsOf(info),
       barriers: this.options.barriers,
       maxAnisotropy: this.options.hang.maxAnisotropy,
       reflections: this.options.hang.reflections,
