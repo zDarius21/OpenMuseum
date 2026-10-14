@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createBarriers, type BarrierConfig } from './Barriers';
+import { createBarriers, type BarrierConfig, type Barriers } from './Barriers';
 import { createParquetTexture, PARQUET_TILE_SIZE } from './parquet';
 import { createTextureCanvas } from '../utils/textureCanvas';
 
@@ -39,13 +39,17 @@ export interface Wall {
 
 export interface Room {
   readonly group: THREE.Group;
-  /** Volumi solidi contro cui si ferma il visitatore. */
+  /** Volumi solidi contro cui si ferma il visitatore: le pareti e, se ci sono, le transenne. */
   readonly colliders: THREE.Box3[];
   readonly walls: Record<WallId, Wall>;
   readonly height: number;
   /** Facce interne delle pareti sud e nord, lungo z. */
   readonly south: number;
   readonly north: number;
+  /** Chiude una porta con un pezzo di parete, o la riapre: dietro una sala non costruita si vedrebbe lo sfondo scuro. */
+  setDoorClosed(side: 'south' | 'north', closed: boolean): void;
+  /** Mette o toglie le transenne, con le loro collisioni: la sala nasce vuota. */
+  setBarriers(present: boolean): void;
   /** Libera la memoria della scheda grafica quando la sala viene smontata. */
   dispose(): void;
 }
@@ -134,13 +138,14 @@ export function createRoom(options: RoomOptions): Room {
   }
 
   // Pareti di fondo, con la porta al centro se c'è. `inward` è il verso della sala visto dalla parete.
-  const endWall = (face: number, inward: number, hasDoor: boolean): void => {
+  // Con la porta restituisce il pezzo di parete che la chiude, nascosto finché non serve.
+  const endWall = (face: number, inward: number, hasDoor: boolean): THREE.Mesh | null => {
     const z = face - (inward * thickness) / 2;
     const baseboardZ = face + (inward * BASEBOARD_DEPTH) / 2;
     if (!hasDoor) {
       addBox(shared.wall, 0, height / 2, z, [width, height, thickness], true);
       addBox(shared.baseboard, 0, BASEBOARD_HEIGHT / 2, baseboardZ, [width, BASEBOARD_HEIGHT, BASEBOARD_DEPTH]);
-      return;
+      return null;
     }
     const sideWidth = (width - door.width) / 2;
     const baseboardWidth = sideWidth - CASING_WIDTH;
@@ -153,9 +158,17 @@ export function createRoom(options: RoomOptions): Room {
     addBox(shared.wall, 0, (door.height + height) / 2, z, [door.width, height - door.height, thickness]);
     addBox(shared.baseboard, 0, door.height + CASING_WIDTH / 2 - CASING_INSET, z, [door.width + 2 * CASING_WIDTH, CASING_WIDTH, thickness + 2 * CASING_DEPTH]);
     addBox(shared.threshold, 0, 0.004, z, [door.width, 0.008, thickness]);
+
+    // A metà del muro, con i bordi nascosti dallo stipite: da lontano sembra la parete della sala dopo.
+    const closure = new THREE.Mesh(unitPlane, shared.wall);
+    closure.position.set(0, door.height / 2, z);
+    closure.scale.set(door.width, door.height, 1);
+    if (inward < 0) closure.rotation.y = Math.PI;
+    closure.visible = false;
+    group.add(closure);
+    return closure;
   };
-  endWall(south, -1, options.doors.south);
-  endWall(north, 1, options.doors.north);
+  const closures = { south: endWall(south, -1, options.doors.south), north: endWall(north, 1, options.doors.north) };
 
   // Cartelli sopra le porte, sulla faccia interna.
   const signY = door.height + CASING_WIDTH + 0.12 + SIGN_HEIGHT / 2;
@@ -172,18 +185,30 @@ export function createRoom(options: RoomOptions): Room {
   }
 
   // Transenne lungo le pareti lunghe, da una parete di fondo all'altra: le porte restano libere.
-  const inset = options.barriers.distance;
-  const barriers = createBarriers(
-    [-1, 1].map((side) => [
-      { x: side * (half - inset), z: south - BARRIER_END_GAP },
-      { x: side * (half - inset), z: north + BARRIER_END_GAP },
-    ]),
-    options.barriers,
-    options.reflections,
-  );
-  group.add(barriers.group);
-  colliders.push(...barriers.colliders);
-  disposables.push(barriers);
+  // Si mettono solo nelle sale arredate: quelle vuote si vedono da lontano, attraverso le porte.
+  const wallColliders = colliders.length;
+  let barriers: Barriers | null = null;
+  const setBarriers = (present: boolean): void => {
+    if (present === (barriers !== null)) return;
+    if (barriers) {
+      group.remove(barriers.group);
+      barriers.dispose();
+      barriers = null;
+      colliders.length = wallColliders;
+      return;
+    }
+    const inset = options.barriers.distance;
+    barriers = createBarriers(
+      [-1, 1].map((side) => [
+        { x: side * (half - inset), z: south - BARRIER_END_GAP },
+        { x: side * (half - inset), z: north + BARRIER_END_GAP },
+      ]),
+      options.barriers,
+      options.reflections,
+    );
+    group.add(barriers.group);
+    colliders.push(...barriers.colliders);
+  };
 
   const walls: Record<WallId, Wall> = {
     nord: { center: new THREE.Vector3(0, 0, north), normal: new THREE.Vector3(0, 0, 1), right: new THREE.Vector3(1, 0, 0), length: width },
@@ -199,7 +224,13 @@ export function createRoom(options: RoomOptions): Room {
     height,
     south,
     north,
+    setDoorClosed: (side, closed) => {
+      const closure = closures[side];
+      if (closure) closure.visible = closed;
+    },
+    setBarriers,
     dispose: () => {
+      setBarriers(false);
       for (const item of disposables) item.dispose();
     },
   };

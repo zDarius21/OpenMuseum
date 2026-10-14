@@ -14,7 +14,12 @@ export const settings = {
     /** Spazio minimo tra due opere (targhetta compresa) e tra un'opera e le pareti di fondo. */
     minGap: 0.9,
     door: { width: 2.2, height: 3.2 },
-    /** Quante sale costruire (pareti, cornici, targhette) prima e dopo quella in cui ci si trova. */
+    /**
+     * Quante sale costruire vuote (pareti, pavimento, porte e cartelli, senza quadri né transenne) prima e dopo
+     * quella in cui ci si trova: si vedono in fondo attraverso le porte. Oltre, le porte sono chiuse da un muro bianco.
+     */
+    shellRadius: 4,
+    /** Quante sale arredare (cornici, targhette, transenne) prima e dopo quella in cui ci si trova. */
     buildRadius: 2,
     /** Quante sale, prima e dopo quella in cui ci si trova, hanno le immagini caricate. */
     imageRadius: 1,
@@ -26,6 +31,15 @@ export const settings = {
     defaultPerRoom: 6,
     /** Raggruppando per città, quelle con meno opere di così finiscono insieme in «Altre città». */
     minCityRoom: 3,
+  },
+  /** Barra di caricamento della prima sala, nella schermata iniziale: corre subito, poi segue il caricamento vero. */
+  loadingBar: {
+    /** Parte della barra che si riempie subito, qualunque sia il caricamento vero: l'attesa sembra più breve. */
+    fastShare: 0.78,
+    /** Secondi per riempire la parte veloce; il resto segue il caricamento vero, più piano. */
+    fastDuration: 0.9,
+    /** Secondi per riempire quello che manca quando il caricamento finisce. */
+    finishDuration: 0.3,
   },
   barriers: {
     /** Distanza delle transenne dalle pareti. */

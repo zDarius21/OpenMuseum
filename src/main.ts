@@ -41,6 +41,7 @@ const toast = new Toast(container);
 const rooms = new RoomManager({
   scene: museum.scene,
   renderer: museum.renderer,
+  camera: museum.camera,
   room: settings.rooms,
   layout: { ...settings.rooms, ...settings.artworks },
   barriers: settings.barriers,
@@ -61,6 +62,7 @@ let creation = 0;
 const startScreen = new StartScreen(container, hud, controls, {
   perRoomOptions: settings.visit.perRoomOptions,
   defaultPerRoom: settings.visit.defaultPerRoom,
+  loadingBar: settings.loadingBar,
   preview: (filters) => {
     const works = filterArtworks(catalog, filters);
     return { artworks: works.length, rooms: planRooms(works, filters, settings.visit.minCityRoom).length };
@@ -82,8 +84,8 @@ async function createMuseum(filters: VisitFilters): Promise<void> {
   museum.camera.position.set(position.x, settings.camera.eyeHeight, position.z);
   museum.camera.lookAt(lookAt.x, settings.camera.eyeHeight, lookAt.z);
 
-  await rooms.enter((loaded, total) => {
-    if (id === creation) startScreen.setProgress(loaded, total);
+  await rooms.enter((done, total) => {
+    if (id === creation) startScreen.setProgress(done, total);
   });
   if (id !== creation) return;
   const count = rooms.rooms.reduce((sum, room) => sum + room.layout.placed.length, 0);

@@ -21,10 +21,13 @@ export interface RoomInfo {
 
 export interface RoomManagerOptions {
   scene: THREE.Scene;
-  /** Serve a passare le immagini dei quadri alla scheda grafica una alla volta. */
+  /** Servono a passare le immagini dei quadri alla scheda grafica una alla volta e a compilare gli shader in anticipo. */
   renderer: THREE.WebGLRenderer;
+  camera: THREE.Camera;
   room: RoomConfig & {
-    /** Sale costruite prima e dopo quella in cui ci si trova. */
+    /** Sale vuote (pareti, pavimento e porte) prima e dopo quella in cui ci si trova: si vedono dalle porte. */
+    shellRadius: number;
+    /** Sale arredate, con quadri, targhette e transenne, prima e dopo quella in cui ci si trova. */
     buildRadius: number;
     /** Sale con le immagini caricate prima e dopo quella in cui ci si trova. */
     imageRadius: number;
@@ -39,10 +42,12 @@ export interface RoomManagerOptions {
 
 interface Slot {
   info: RoomInfo;
+  /** Pareti, pavimento e porte. */
   room: Room | null;
+  /** I quadri, solo nelle sale arredate. */
   artworks: THREE.Group | null;
   images: 'none' | 'loading' | 'loaded';
-  /** Aumenta quando la sala viene smontata o perde le immagini: i caricamenti ancora in corso capiscono di essere superati. */
+  /** Aumenta quando la sala perde i quadri o le immagini: i caricamenti ancora in corso capiscono di essere superati. */
   generation: number;
 }
 
@@ -50,9 +55,9 @@ interface Slot {
 const START_DISTANCE = 1.5;
 
 /**
- * Le sale del museo, in fila da sud a nord e collegate da porte. Sono costruite solo quelle vicine al visitatore,
- * e solo le più vicine hanno le immagini: camminando le altre si costruiscono e si smontano, così il museo
- * pesa come poche sale anche quando sono tante.
+ * Le sale del museo, in fila da sud a nord e collegate da porte. Sono costruite solo quelle vicine al visitatore:
+ * le più lontane vuote, perché si vedano in fondo attraverso le porte; le vicine arredate, e le più vicine con
+ * le immagini. Camminando le altre si costruiscono e si smontano, così il museo pesa come poche sale anche quando sono tante.
  */
 export class RoomManager {
   /** Contiene i quadri delle sale costruite: è qui che si cercano i clic. */
@@ -115,18 +120,60 @@ export class RoomManager {
   }
 
   /**
-   * Costruisce la prima sala e quelle vicine, poi aspetta le immagini della prima.
-   * `onProgress` riceve quante immagini della prima sala sono arrivate.
+   * Costruisce la prima sala e quelle vicine, poi aspetta gli shader e le immagini della prima.
+   * `onProgress` riceve quanti di questi passi sono finiti: uno per immagine, più uno per gli shader.
    */
-  async enter(onProgress: (loaded: number, total: number) => void): Promise<void> {
+  async enter(onProgress: (done: number, total: number) => void): Promise<void> {
     const slots = this.slots;
     if (slots.length === 0) return;
     const first = slots[0];
-    // La prima sala si carica per prima, con l'avanzamento; le vicine dopo, senza farla aspettare.
-    this.build(first);
-    await this.loadImages(first, onProgress);
+    // Si costruisce subito tutto quello che si vede dalla prima sala, così gli shader si compilano insieme.
+    // Le immagini della prima sala arrivano intanto; quelle delle vicine dopo, senza farla aspettare.
+    this.arrange(0);
+    let images = 0;
+    let total = first.artworks!.children.length;
+    let compiled = false;
+    const report = () => onProgress(images + (compiled ? 1 : 0), total + 1);
+    report();
+    await Promise.all([
+      this.prepareGpu().then(() => {
+        compiled = true;
+        report();
+      }),
+      this.loadImages(first, (loaded, count) => {
+        images = loaded;
+        total = count;
+        report();
+      }),
+    ]);
     // Se nel frattempo è stato scelto un altro percorso, ci pensa la sua chiamata a enter.
     if (this.slots === slots) this.setCurrent(0);
+  }
+
+  /**
+   * Prepara la scheda grafica per le sale costruite senza fermare la pagina. Gli shader si compilano in parallelo:
+   * la prima volta ci vogliono anche due secondi, e la schermata iniziale resterebbe bloccata. Intanto le texture
+   * (targhette, cartelli, parquet) passano una per frame, invece che tutte insieme al primo frame.
+   * Fino ad allora le sale restano nascoste, se no il primo frame farebbe tutto subito, aspettando.
+   */
+  private async prepareGpu(): Promise<void> {
+    const { renderer, scene, camera } = this.options;
+    this.roomsGroup.visible = false;
+    this.artworksRoot.visible = false;
+    const textures = new Set<THREE.Texture>();
+    scene.traverse((object) => {
+      // Le targhette hanno un materiale per faccia.
+      const materials = [(object as THREE.Mesh).material ?? []].flat();
+      for (const material of materials) {
+        for (const value of Object.values(material)) if (value instanceof THREE.Texture) textures.add(value);
+      }
+    });
+    const uploads = [...textures].map(
+      (texture) => new Promise<void>((resolve) => this.uploadQueue.push(() => (renderer.initTexture(texture), resolve()))),
+    );
+    await Promise.all([renderer.compileAsync(scene, camera), ...uploads]);
+    this.roomsGroup.visible = true;
+    this.artworksRoot.visible = true;
   }
 
   /** Da chiamare a ogni frame: segue il visitatore da una sala all'altra. */
@@ -148,12 +195,10 @@ export class RoomManager {
 
   private setCurrent(index: number): void {
     this.currentIndex = index;
-    const { buildRadius, imageRadius } = this.options.room;
+    this.arrange(index);
+    const { imageRadius } = this.options.room;
     for (const slot of this.slots) {
-      const distance = Math.abs(slot.info.index - index);
-      if (distance <= buildRadius) this.build(slot);
-      else this.teardown(slot);
-      if (distance <= imageRadius) void this.loadImages(slot);
+      if (Math.abs(slot.info.index - index) <= imageRadius) void this.loadImages(slot);
       else this.unloadImages(slot);
     }
     const current = this.slots[index];
@@ -161,6 +206,33 @@ export class RoomManager {
     this.options.onRoomChange(current.info, this.slots.length);
   }
 
+  /** Costruisce, arreda, svuota e smonta le sale secondo la distanza da quella indicata. Le immagini sono a parte. */
+  private arrange(index: number): void {
+    const { shellRadius, buildRadius } = this.options.room;
+    for (const slot of this.slots) {
+      const distance = Math.abs(slot.info.index - index);
+      if (distance <= buildRadius) this.furnish(slot);
+      else if (distance <= shellRadius) {
+        this.build(slot);
+        this.unfurnish(slot);
+      } else this.teardown(slot);
+    }
+    this.closeDoorsToEmptyRooms();
+  }
+
+  /**
+   * Chiude le porte che danno su sale non costruite, e riapre le altre: invece del vuoto scuro, attraverso
+   * le porte in fondo si vede bianco come le pareti, e quando la sala si costruisce lo stacco si nota poco.
+   */
+  private closeDoorsToEmptyRooms(): void {
+    for (const slot of this.slots) {
+      const { index } = slot.info;
+      slot.room?.setDoorClosed('south', !this.slots[index - 1]?.room);
+      slot.room?.setDoorClosed('north', !this.slots[index + 1]?.room);
+    }
+  }
+
+  /** Costruisce la sala vuota: pareti, pavimento, soffitto, porte e cartelli. */
   private build(slot: Slot): void {
     if (slot.room) return;
     const { info } = slot;
@@ -181,29 +253,45 @@ export class RoomManager {
     });
     slot.room = room;
     this.roomsGroup.add(room.group);
-    this.colliders.push(...room.colliders);
+  }
 
-    slot.artworks = hangArtworks(info.layout.placed, room, this.options.hang);
+  /**
+   * Arreda la sala, costruendola se serve: quadri (ancora senza immagini), targhette e transenne.
+   * Le collisioni servono solo qui: alle sale vuote, sempre lontane, non ci si avvicina.
+   */
+  private furnish(slot: Slot): void {
+    this.build(slot);
+    const room = slot.room!;
+    if (slot.artworks) return;
+    room.setBarriers(true);
+    this.colliders.push(...room.colliders);
+    slot.artworks = hangArtworks(slot.info.layout.placed, room, this.options.hang);
     this.artworksRoot.add(slot.artworks);
   }
 
-  private teardown(slot: Slot): void {
+  /** Toglie quadri e transenne, e lascia la sala vuota. */
+  private unfurnish(slot: Slot): void {
     const { room, artworks } = slot;
-    if (!room) return;
+    if (!room || !artworks) return;
     slot.generation++;
     slot.images = 'none';
-    slot.room = null;
     slot.artworks = null;
 
     const removed = new Set(room.colliders);
     const kept = this.colliders.filter((collider) => !removed.has(collider));
     this.colliders.splice(0, this.colliders.length, ...kept);
+    room.setBarriers(false);
+    this.artworksRoot.remove(artworks);
+    for (const group of artworks.children) disposeArtwork(group);
+  }
+
+  private teardown(slot: Slot): void {
+    const { room } = slot;
+    if (!room) return;
+    this.unfurnish(slot);
+    slot.room = null;
     this.roomsGroup.remove(room.group);
     room.dispose();
-    if (artworks) {
-      this.artworksRoot.remove(artworks);
-      for (const group of artworks.children) disposeArtwork(group);
-    }
   }
 
   /** Scarica le immagini dei quadri della sala, se non ci sono già o non stanno già arrivando. */

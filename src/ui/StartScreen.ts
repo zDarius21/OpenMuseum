@@ -1,5 +1,6 @@
 import type { PlayerControls } from '../controls/PlayerControls';
 import type { CatalogFacets, Grouping, VisitFilters } from '../rooms/plan';
+import { ProgressBar, type ProgressBarOptions } from './ProgressBar';
 
 interface Step {
   icon: string;
@@ -11,6 +12,7 @@ interface Step {
 export interface StartScreenOptions {
   perRoomOptions: readonly number[];
   defaultPerRoom: number;
+  loadingBar: ProgressBarOptions;
   /** Quante opere e quante sale darebbero i filtri, per il riepilogo sotto il modulo. */
   preview(filters: VisitFilters): { artworks: number; rooms: number };
   /** Chiamata con «Crea il museo»: costruisce le sale. */
@@ -83,7 +85,7 @@ export class StartScreen {
   private readonly guide: HTMLElement;
   private readonly steps: HTMLElement;
   private readonly progress: HTMLElement;
-  private readonly bar: HTMLElement;
+  private readonly bar: ProgressBar;
   private readonly enterButton: HTMLButtonElement;
   private readonly filtersButton: HTMLButtonElement;
   private readonly helpButton: HTMLButtonElement;
@@ -111,7 +113,7 @@ export class StartScreen {
         <form class="start__filters" hidden></form>
         <div class="start__guide" hidden>
           <ul class="start__steps"></ul>
-          <div class="start__progress"><div class="start__bar"></div></div>
+          <div class="start__progress" aria-label="Caricamento della prima sala"><div class="start__bar"></div></div>
           <button type="button" class="start__button" data-action="enter"></button>
           <button type="button" class="start__link" data-action="filters">Cambia i filtri</button>
         </div>
@@ -121,7 +123,7 @@ export class StartScreen {
     this.guide = this.root.querySelector('.start__guide')!;
     this.steps = this.root.querySelector('.start__steps')!;
     this.progress = this.root.querySelector('.start__progress')!;
-    this.bar = this.root.querySelector('.start__bar')!;
+    this.bar = new ProgressBar(this.progress, this.root.querySelector('.start__bar')!, options.loadingBar);
     this.enterButton = this.root.querySelector('[data-action="enter"]')!;
     this.filtersButton = this.root.querySelector('[data-action="filters"]')!;
     parent.append(this.root);
@@ -180,18 +182,20 @@ export class StartScreen {
     this.status.textContent = 'Impossibile caricare il catalogo: riprova più tardi';
   }
 
-  setProgress(loaded: number, total: number): void {
+  /** A che punto è la preparazione della prima sala. Il testo non lo dice: la barra corre più del caricamento vero. */
+  setProgress(done: number, total: number): void {
     if (this.museum !== 'loading') return;
-    this.status.textContent = total > 0 ? `Preparazione della prima sala: ${loaded} di ${total} opere` : 'Preparazione della prima sala…';
-    this.bar.style.width = `${total > 0 ? (loaded / total) * 100 : 0}%`;
+    this.bar.set(total > 0 ? done / total : 0);
   }
 
-  /** La prima sala è pronta: `summary` è per esempio «5 sale · 30 opere». */
+  /** La prima sala è pronta: `summary` è per esempio «5 sale · 30 opere». Il museo si apre quando la barra è piena. */
   setReady(summary: string): void {
-    this.museum = 'ready';
-    this.status.textContent = summary;
-    this.render();
-    if (this.open) this.enterButton.focus({ preventScroll: true });
+    this.bar.complete(() => {
+      this.museum = 'ready';
+      this.status.textContent = summary;
+      this.render();
+      if (this.open) this.enterButton.focus({ preventScroll: true });
+    });
   }
 
   /** Riapre la schermata sulle istruzioni, da cui si possono anche cambiare i filtri. */
@@ -217,9 +221,11 @@ export class StartScreen {
     if (!filters || this.options.preview(filters).artworks === 0) return;
     this.museum = 'loading';
     this.status.textContent = 'Preparazione della prima sala…';
-    this.bar.style.width = '0%';
+    this.bar.start();
     this.showStep('guide');
-    this.options.onCreate(filters);
+    // Le sale si costruiscono dopo che la barra è comparsa: costruirle ferma la pagina per un attimo, e il clic
+    // sembrerebbe non fare nulla.
+    requestAnimationFrame(() => setTimeout(() => this.options.onCreate(filters)));
   }
 
   /** Chiude la schermata; su PC, se richiesto, blocca subito il puntatore (serve un clic dell'utente). */

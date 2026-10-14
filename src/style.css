@@ -211,11 +211,12 @@ body {
   background: rgb(255 255 255 / 0.12);
 }
 
+/* La riempie ProgressBar a ogni frame: scaleX non ricalcola l'impaginazione come width. */
 .start__bar {
-  width: 0;
   height: 100%;
   background: #e0bd6e;
-  transition: width 0.2s ease;
+  transform: scaleX(0);
+  transform-origin: left;
 }
 
 .start__button,

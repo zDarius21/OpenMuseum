@@ -23,6 +23,9 @@ export class Museum {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.renderer.maxPixelRatio));
     // Neutral comprime solo le luci forti e lascia fedeli i colori, importante per i quadri.
     this.renderer.toneMapping = THREE.NeutralToneMapping;
+    // Il controllo degli errori degli shader aspetta che ogni programma sia pronto: al primo frame del museo
+    // costava più di cento millisecondi. Serve solo durante lo sviluppo.
+    this.renderer.debug.checkShaderErrors = import.meta.env.DEV;
     container.appendChild(this.renderer.domElement);
 
     this.scene.background = new THREE.Color(settings.renderer.background);
