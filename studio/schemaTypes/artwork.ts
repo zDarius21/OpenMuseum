@@ -9,18 +9,33 @@ const WALLS = [
 ];
 
 /**
- * Le correnti, nell'ordine in cui si sono succedute: nel menu iniziale sono le tappe del percorso.
+ * Le correnti, nell'ordine in cui sono nate: nel menu iniziale sono le tappe del percorso.
  * Il museo ha lo stesso elenco, con i colori, in src/data/movements.ts: una corrente nuova va aggiunta in tutti e due.
  */
 const MOVEMENTS = [
+  { title: 'Gotico', value: 'gotico' },
   { title: 'Rinascimento', value: 'rinascimento' },
+  { title: 'Primitivi fiamminghi', value: 'primitivi-fiamminghi' },
+  { title: 'Rinascimento nordico', value: 'rinascimento-nordico' },
   { title: 'Manierismo', value: 'manierismo' },
-  { title: 'Barocco', value: 'barocco' },
   { title: 'Caravaggismo', value: 'caravaggismo' },
+  { title: 'Barocco', value: 'barocco' },
   { title: 'Rococò', value: 'rococo' },
   { title: 'Neoclassicismo', value: 'neoclassicismo' },
   { title: 'Romanticismo', value: 'romanticismo' },
+  { title: 'Realismo', value: 'realismo' },
+  { title: 'Preraffaelliti', value: 'preraffaelliti' },
+  { title: 'Macchiaioli', value: 'macchiaioli' },
   { title: 'Impressionismo', value: 'impressionismo' },
+  { title: 'Simbolismo', value: 'simbolismo' },
+  { title: 'Postimpressionismo', value: 'postimpressionismo' },
+  { title: 'Divisionismo', value: 'divisionismo' },
+  { title: 'Secessione viennese', value: 'secessione' },
+  { title: 'Fauvismo', value: 'fauvismo' },
+  { title: 'Espressionismo', value: 'espressionismo' },
+  { title: 'Cubismo', value: 'cubismo' },
+  { title: 'Futurismo', value: 'futurismo' },
+  { title: 'Astrattismo', value: 'astrattismo' },
 ];
 
 /** Un dettaglio del quadro su cui la camera si avvicina durante la visita guidata. */

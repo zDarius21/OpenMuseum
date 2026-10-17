@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { pointerFromEvent } from '../artworks/pickArtwork';
 import { resolveCollisions } from './collisions';
 import { Joystick } from './Joystick';
@@ -7,6 +6,7 @@ import { Joystick } from './Joystick';
 export interface PlayerOptions {
   radius: number;
   speed: number;
+  mouseLookSpeed: number;
   touchLookSpeed: number;
 }
 
@@ -18,6 +18,15 @@ const ACCELERATION = 10;
 /** Un tocco più breve e più corto di così è un "tap", non un trascinamento per guardarsi intorno. */
 const TAP_MAX_DISTANCE = 10;
 const TAP_MAX_DURATION = 400;
+/**
+ * Con il puntatore bloccato il browser ogni tanto segnala uno spostamento del mouse enorme che non c'è stato, e la
+ * visuale scatterebbe di colpo. Uno spostamento è vero se non supera MOUSE_JUMP_MIN pixel più MOUSE_JUMP_RATIO volte
+ * il precedente: la mano accelera un po' alla volta, l'errore arriva tutto insieme, di solito da fermi.
+ */
+const MOUSE_JUMP_MIN = 50;
+const MOUSE_JUMP_RATIO = 3;
+/** Dopo una pausa così lunga, in millisecondi, il mouse riparte da fermo. */
+const MOUSE_REST = 100;
 
 const FORWARD_KEYS = ['KeyW', 'ArrowUp'];
 const BACKWARD_KEYS = ['KeyS', 'ArrowDown'];
@@ -49,13 +58,14 @@ export class PlayerControls {
   private readonly domElement: HTMLElement;
   private readonly colliders: readonly THREE.Box3[];
   private readonly options: PlayerOptions;
-  private readonly pointerLock: PointerLockControls;
   private readonly joystick: Joystick;
   private readonly keys = new Set<string>();
   private readonly velocity = new THREE.Vector3();
   private readonly listeners = new Set<() => void>();
   private touchMode = window.matchMedia('(pointer: coarse)').matches;
   private look: { pointerId: number; x: number; y: number; startX: number; startY: number; startTime: number } | null = null;
+  /** L'ultimo spostamento del mouse, in pixel, e quando è arrivato: servono a riconoscere i salti finti. */
+  private lastMouseMove = { size: 0, time: 0 };
   /** Dopo un'uscita con Esc: il puntatore si blocca quando il tasto viene rilasciato. */
   private lockOnEscapeUp = false;
 
@@ -65,15 +75,11 @@ export class PlayerControls {
     this.colliders = colliders;
     this.options = options;
 
-    this.pointerLock = new PointerLockControls(camera, domElement);
-    this.pointerLock.minPolarAngle = PITCH_MARGIN;
-    this.pointerLock.maxPolarAngle = Math.PI - PITCH_MARGIN;
-    this.pointerLock.addEventListener('lock', this.notify);
-    this.pointerLock.addEventListener('unlock', this.notify);
-
     this.joystick = new Joystick(domElement.parentElement ?? document.body);
     this.joystick.visible = this.touchMode;
 
+    document.addEventListener('pointerlockchange', this.onPointerLockChange);
+    document.addEventListener('mousemove', this.onMouseMove);
     domElement.addEventListener('pointerdown', this.onPointerDown);
     domElement.addEventListener('pointermove', this.onPointerMove);
     domElement.addEventListener('pointerup', this.onPointerUp);
@@ -85,7 +91,6 @@ export class PlayerControls {
 
   /** True se il puntatore del mouse è bloccato sulla scena. */
   get isLocked(): boolean {
-    // Letto dal documento: PointerLockControls aggiorna il suo `isLocked` solo dopo aver inviato l'evento.
     return document.pointerLockElement === this.domElement;
   }
 
@@ -102,7 +107,6 @@ export class PlayerControls {
   set enabled(enabled: boolean) {
     if (enabled === this.isEnabled) return;
     this.isEnabled = enabled;
-    this.pointerLock.enabled = enabled;
     this.joystick.visible = enabled && this.touchMode;
     if (!enabled) {
       this.velocity.set(0, 0, 0);
@@ -191,8 +195,34 @@ export class PlayerControls {
     this.notify();
   }
 
+  /** Gira lo sguardo di dx, dy pixel; in alto e in basso si ferma poco prima della verticale. */
+  private turn(dx: number, dy: number, speed: number): void {
+    _euler.setFromQuaternion(this.camera.quaternion);
+    _euler.y -= dx * speed;
+    _euler.x = THREE.MathUtils.clamp(_euler.x - dy * speed, -PITCH_LIMIT, PITCH_LIMIT);
+    this.camera.quaternion.setFromEuler(_euler);
+  }
+
   private readonly notify = (): void => {
     for (const fn of this.listeners) fn();
+  };
+
+  private readonly onPointerLockChange = (): void => {
+    // Appena bloccato il mouse è da considerare fermo: anche il primo spostamento può essere un salto finto.
+    this.lastMouseMove = { size: 0, time: 0 };
+    this.notify();
+  };
+
+  private readonly onMouseMove = (event: MouseEvent): void => {
+    if (!this.isEnabled || !this.isLocked) return;
+    const { movementX: dx, movementY: dy, timeStamp: time } = event;
+    const size = Math.hypot(dx, dy);
+    const previous = time - this.lastMouseMove.time > MOUSE_REST ? 0 : this.lastMouseMove.size;
+    const limit = MOUSE_JUMP_MIN + MOUSE_JUMP_RATIO * previous;
+    // Uno spostamento scartato conta come se fosse arrivato al limite: se era un gesto vero e veloce, il successivo
+    // passa, e si perde al più un istante di movimento.
+    this.lastMouseMove = { size: Math.min(size, limit), time };
+    if (size <= limit) this.turn(dx, dy, this.options.mouseLookSpeed);
   };
 
   private readonly onPointerDown = (event: PointerEvent): void => {
@@ -215,12 +245,7 @@ export class PlayerControls {
   private readonly onPointerMove = (event: PointerEvent): void => {
     if (event.pointerId !== this.look?.pointerId || !this.isEnabled) return;
 
-    const speed = this.options.touchLookSpeed;
-    _euler.setFromQuaternion(this.camera.quaternion);
-    _euler.y -= (event.clientX - this.look.x) * speed;
-    _euler.x = THREE.MathUtils.clamp(_euler.x - (event.clientY - this.look.y) * speed, -PITCH_LIMIT, PITCH_LIMIT);
-    this.camera.quaternion.setFromEuler(_euler);
-
+    this.turn(event.clientX - this.look.x, event.clientY - this.look.y, this.options.touchLookSpeed);
     this.look.x = event.clientX;
     this.look.y = event.clientY;
   };

@@ -42,6 +42,10 @@ const LANGUAGE_NAMES: Record<Language, { name: string; short: string }> = {
 /** Il segno di spunta delle tappe e delle opere scelte. */
 const CHECK = svg('<path d="m5.5 12.5 4 4.5 9-10.5"/>');
 
+/** Le frecce che fanno scorrere le tappe quando non ci stanno tutte. */
+const ARROW_LEFT = svg('<path d="m14.5 6-6 6 6 6"/>');
+const ARROW_RIGHT = svg('<path d="m9.5 6 6 6-6 6"/>');
+
 /** Dai due caratteri in su la ricerca sostituisce le opere della corrente aperta. */
 const MIN_QUERY = 2;
 
@@ -62,6 +66,8 @@ export class StartScreen {
   private readonly route: HTMLElement;
   private readonly status: HTMLElement;
   private readonly timeline: HTMLElement;
+  private readonly timelineScroll: HTMLElement;
+  private readonly arrows: HTMLButtonElement[];
   private readonly artists: HTMLElement;
   private readonly works: HTMLElement;
   private readonly guide: HTMLElement;
@@ -116,7 +122,11 @@ export class StartScreen {
           <h1 class="start__title" id="start-route-title" data-text="routeTitle"></h1>
           <p class="start__lead" data-text="routeLead"></p>
           <p class="start__status" aria-live="polite"></p>
-          <div class="timeline-scroll"><ol class="timeline"></ol></div>
+          <div class="timeline-wrap">
+            <button type="button" class="timeline-arrow" data-scroll="-1" hidden>${ARROW_LEFT}</button>
+            <div class="timeline-scroll"><ol class="timeline"></ol></div>
+            <button type="button" class="timeline-arrow" data-scroll="1" hidden>${ARROW_RIGHT}</button>
+          </div>
           <div class="artists"></div>
           <ul class="works" id="start-works"></ul>
         </section>
@@ -143,6 +153,8 @@ export class StartScreen {
     this.route = find('.start__route');
     this.status = find('.start__status');
     this.timeline = find('.timeline');
+    this.timelineScroll = find('.timeline-scroll');
+    this.arrows = [...this.root.querySelectorAll<HTMLButtonElement>('.timeline-arrow')];
     this.artists = find('.artists');
     this.works = find('.works');
     this.guide = find('.start__guide');
@@ -167,6 +179,15 @@ export class StartScreen {
       if (code) setLanguage(code as Language);
     });
     this.timeline.addEventListener('click', this.onTimelineClick);
+    // Le tappe scorrono di lato: le frecce compaiono, e i bordi sfumano, solo dove ce ne sono altre.
+    for (const arrow of this.arrows) {
+      arrow.addEventListener('click', () => {
+        const scroller = this.timelineScroll;
+        scroller.scrollBy({ left: Number(arrow.dataset.scroll) * scroller.clientWidth * 0.75, behavior: 'smooth' });
+      });
+    }
+    this.timelineScroll.addEventListener('scroll', () => this.renderTimelineEdges(), { passive: true });
+    new ResizeObserver(() => this.renderTimelineEdges()).observe(this.timelineScroll);
     this.artists.addEventListener('click', this.onArtistsClick);
     this.works.addEventListener('click', this.onWorksClick);
     this.search.addEventListener('input', () => {
@@ -369,6 +390,11 @@ export class StartScreen {
       button.setAttribute('aria-pressed', String(button.dataset.language === language()));
     }
     this.progress.setAttribute('aria-label', text.loadingFirstRoom);
+    for (const arrow of this.arrows) {
+      const label = arrow.dataset.scroll === '-1' ? text.earlier : text.later;
+      arrow.setAttribute('aria-label', label);
+      arrow.title = label;
+    }
     this.helpButton.setAttribute('aria-label', text.help);
     this.helpButton.title = text.help;
     this.renderStatus();
@@ -410,6 +436,17 @@ export class StartScreen {
       })
       .join('');
     this.renderDetails();
+    this.renderTimelineEdges();
+  }
+
+  /** Mostra le frecce, e sfuma il bordo, dalle parti in cui ci sono altre tappe da scorrere. */
+  private renderTimelineEdges(): void {
+    const { scrollLeft, scrollWidth, clientWidth } = this.timelineScroll;
+    const more = { before: scrollLeft > 2, after: scrollLeft + clientWidth < scrollWidth - 2 };
+    this.timelineScroll.classList.toggle('timeline-scroll--before', more.before);
+    this.timelineScroll.classList.toggle('timeline-scroll--after', more.after);
+    this.arrows[0].hidden = !more.before;
+    this.arrows[1].hidden = !more.after;
   }
 
   /** Segni di spunta su tappe, artisti e opere scelte, la tappa aperta, i conteggi. */

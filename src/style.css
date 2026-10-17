@@ -252,10 +252,17 @@ body {
   display: none;
 }
 
-/* Le tappe: cerchi colorati in fila, uniti da un binario. Sui telefoni la fila scorre di lato. */
+/* Le tappe: cerchi colorati in fila, uniti da un binario. Se non ci stanno tutte la fila scorre di lato: i bordi
+   sfumano dalle parti in cui ce ne sono altre, e con il mouse ci sono le frecce. */
+
+.timeline-wrap {
+  position: relative;
+  margin: 1.4rem calc(-1 * var(--gutter)) 0;
+}
 
 .timeline-scroll {
-  margin: 1.4rem calc(-1 * var(--gutter)) 0;
+  --fade: 3.5rem;
+
   padding: 0.25rem var(--gutter);
   overflow-x: auto;
   scroll-padding-inline: var(--gutter);
@@ -266,9 +273,74 @@ body {
   display: none;
 }
 
+.timeline-scroll--after {
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent);
+}
+
+.timeline-scroll--before {
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade));
+}
+
+.timeline-scroll--before.timeline-scroll--after {
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+}
+
+/* Le frecce stanno all'altezza dei cerchi, sopra la parte sfumata. */
+.timeline-arrow {
+  position: absolute;
+  top: calc(0.25rem + var(--dot) / 2);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgb(45 42 50 / 0.12);
+  color: var(--ink);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.timeline-arrow[hidden] {
+  display: none;
+}
+
+.timeline-arrow[data-scroll='-1'] {
+  left: 0.4rem;
+}
+
+.timeline-arrow[data-scroll='1'] {
+  right: 0.4rem;
+}
+
+.timeline-arrow svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.timeline-arrow:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.timeline-arrow:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Sui touch la fila si fa scorrere con il dito: le frecce non servono. */
+@media (hover: none) {
+  .timeline-arrow {
+    display: none;
+  }
+}
+
 .timeline {
   display: grid;
-  /* Abbastanza larghe per «Neoclassicismo»: se non ci stanno tutte, la fila scorre. */
+  /* Abbastanza larghe per «Neoclassicismo»: i nomi più lunghi vanno su due righe. */
   grid-auto-columns: minmax(6.75rem, 1fr);
   grid-auto-flow: column;
   margin: 0;
@@ -360,10 +432,14 @@ body {
 }
 
 .stop__name {
+  /* Due righe sempre, così i conteggi sotto restano allineati anche quando un nome va a capo. */
+  min-height: 2.3em;
   margin-top: 0.65rem;
   font-size: 0.9rem;
   font-weight: 600;
-  white-space: nowrap;
+  line-height: 1.15;
+  text-align: center;
+  text-wrap: balance;
 }
 
 /* La tappa aperta, di cui si vedono sotto artisti e opere. */
@@ -373,7 +449,7 @@ body {
 }
 
 .stop__count {
-  margin-top: 0.45rem;
+  margin-top: 0.2rem;
   color: var(--muted);
   font-size: 0.8rem;
 }
@@ -791,8 +867,11 @@ button.pill[aria-pressed='true']:hover {
     padding-top: 1.2rem;
   }
 
-  .timeline-scroll {
+  .timeline-wrap {
     margin-top: 1.2rem;
+  }
+
+  .timeline-scroll {
     scroll-snap-type: x proximity;
   }
 

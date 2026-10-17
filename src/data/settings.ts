@@ -96,6 +96,8 @@ export const settings = {
     radius: 0.35,
     /** Velocità di camminata, in m/s. */
     speed: 3.5,
+    /** Sensibilità dello sguardo con il mouse o il trackpad, in radianti per pixel. */
+    mouseLookSpeed: 0.002,
     /** Sensibilità dello sguardo trascinando il dito, in radianti per pixel. */
     touchLookSpeed: 0.005,
   },
