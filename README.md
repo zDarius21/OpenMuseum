@@ -1,11 +1,39 @@
-# OpenMuseum – 3D Virtual Museum
+<div align="center">
 
-A 3D virtual museum you can walk through in the browser, on desktop and mobile. Pick the art movements you want to walk through, and the museum builds a sequence of small rooms to explore in first person, each painting shown at its real size with a gilded frame, a spotlight and a wall label. Walk up to the rope in front of a painting and click it to see it full screen, or press the gold "Audioguida" button above its label to start the audio guide: the camera glides in and zooms on its details while a narrator reads the explanation aloud (available for 27 key works, at least three for every art movement).
-The museum can be visited at https://www.open-museum-tau.vercel.app
+# OpenMuseum
+
+**A 3D virtual museum you walk through in the browser, from Gothic art to Fauvism.**
+
+[**Visit the museum →**](https://open-museum-tau.vercel.app) · [Features](#features) · [Getting started](#getting-started) · [In italiano](#in-italiano)
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-2f5d62.svg)](LICENSE)
+![Three.js](https://img.shields.io/badge/Three.js-r186-black?logo=three.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
+![Desktop and mobile](https://img.shields.io/badge/desktop%20%26%20mobile-no%20install-b8892f)
+
+<img src="public/og-image.png" alt="OpenMuseum: paintings in gilded frames on a gallery wall" width="720">
+
+</div>
+
+## About
+
+A 3D virtual museum you can walk through in the browser, on desktop and mobile. Pick the art movements you want to walk through, and the museum builds a sequence of small rooms to explore in first person, each painting shown at its real size with a gilded frame, a spotlight and a wall label. Walk up to the rope in front of a painting and click it to see it full screen, or press the gold "Audioguida" button above its label to start the audio guide: the camera glides in and zooms on its details while a narrator reads the explanation aloud (available for 162 of the 243 works, at least five for every art movement).
+
+Free to use, no sign-up and nothing to install: it runs in any modern browser, in Italian or English (add `?lang=en` to the link to share the English version).
+
+**Highlights**
+
+- 🖼️ Paintings shown at their **real size**, in gilded frames with spotlights and wall labels, in rooms you explore in first person.
+- 🎧 **Narrated audio guides** on 162 works: the camera glides to each detail while a voice explains it.
+- 🗺️ **Build your own route** across 19 art movements, down to single works or artists.
+- 🔍 **Close-up view** with zoom and pan, to study brushstrokes up close.
+- 📱 Works with **keyboard and mouse or touch**, with a virtual joystick on phones.
+- ⚡ **Progressive loading**: only the rooms around you are built and downloaded.
 
 ## Features
 
-- **Route builder:** the start page lays out the art movements on a timeline, from the Renaissance to Impressionism; each movement you pick becomes a stop of the route, in historical order, and turns into one room (or more, when it has more works than a room holds). Below the timeline you see the artists and works of the open movement: every painting can be added to or removed from the route on its own, and the artist buttons pick or drop all the works of an artist at once. A search box finds works and artists across all movements: pick single works directly, or an artist to add or remove all of their works, in every movement, at once. A live summary shows how many stops, works and rooms you'll get. Rooms are square, at least 10 × 10 m, and grow only when their paintings need more wall; the paintings hang chronologically on the walls without doors.
+- **Route builder:** the start page lays out the art movements on a timeline, from Gothic art to Fauvism; each movement you pick becomes a stop of the route, in historical order, and turns into one room (or more, when it has more works than a room holds). Below the timeline you see the artists and works of the open movement: every painting can be added to or removed from the route on its own, and the artist buttons pick or drop all the works of an artist at once. A search box finds works and artists across all movements: pick single works directly, or an artist to add or remove all of their works, in every movement, at once. A live summary shows how many stops, works and rooms you'll get. Rooms are square, at least 10 × 10 m, and grow only when their paintings need more wall; the paintings hang chronologically on the walls without doors.
 - **Rooms connected by doors:** the rooms are laid out on a near-square floor plan instead of a single corridor: the route winds north through one column of rooms, turns, comes back south through the next, and so on. Walk from one room to the next; a sign above each door names the room beyond it, and a banner announces the room you enter. Walls come in three quiet tones (gray, light green and beige), changing from one art movement to the next.
 - **Progressive loading:** only the rooms around the visitor are built, and only the current and adjacent rooms download their images; farther rooms are taken down and their textures freed. While the visitor is still choosing the route, the images of the chosen works already download in the background, in room order, so the first room is often ready as soon as the museum is created. A fixed pool of spotlights, one per painting a room can hold, follows the visitor from room to room, so the lighting cost stays that of a single room and no shaders are recompiled.
 - **Welcome screen:** after the route page, shows how to move, look around and start a tour, with instructions tailored to desktop or touch screens and a progress bar while the first room loads. The `?` button opens it again at any time, and lets you change the route and rebuild the museum.
@@ -22,7 +50,7 @@ The museum can be visited at https://www.open-museum-tau.vercel.app
 - **Procedural assets:** the parquet floor and placeholder images are drawn in code, keeping downloads small.
 - **Configurable:** room size, how many rooms are built and loaded around the visitor, menu options, lighting, barriers, movement speed, field of view and tour timing live in a single settings file.
 
-The in-app interface (labels, hints, console messages) is in Italian.
+The interface is available in Italian and English: the language buttons on the start page switch it, the choice is remembered, and `?lang=it` or `?lang=en` in the link picks it. Texts not yet translated fall back to Italian.
 
 ## Tech stack
 
@@ -161,3 +189,22 @@ Import the repository on [vercel.com](https://vercel.com): Vite is detected auto
 ## Credits
 
 The artwork images are reproductions of public domain paintings from [Wikimedia Commons](https://commons.wikimedia.org). Each source is also recorded in the artwork's *Fonte dell'immagine* field in Sanity.
+
+## Contributing
+
+Ideas, bug reports and pull requests are welcome. Open an [issue](https://github.com/zDarius21/OpenMuseum/issues) to suggest a painting, a new art movement, a translation or an improvement. For code changes, run `npm run build` before opening a pull request to make sure the type check passes.
+
+## License
+
+The source code is released under the [MIT License](LICENSE). The artwork images are public domain reproductions (see [Credits](#credits)) and are not covered by this license.
+
+## In italiano
+
+**OpenMuseum** è un museo virtuale 3D da visitare nel browser, su computer e smartphone, senza installare nulla. Si scelgono le correnti artistiche, dal Gotico al Fauvismo, e il museo costruisce un percorso di sale da esplorare in prima persona: ogni quadro è mostrato a grandezza reale, con cornice dorata, faretto e didascalia.
+
+- **Audioguide narrate** su 162 opere: la camera si avvicina ai dettagli mentre una voce li spiega.
+- **Percorso su misura**: si scelgono correnti, artisti o singole opere, con una ricerca su tutto il catalogo.
+- **Vista ravvicinata** con zoom e spostamento per studiare i dettagli.
+- **Mappa della sala**, scheda di ogni opera e interfaccia in italiano e inglese.
+
+Si visita su [open-museum-tau.vercel.app](https://open-museum-tau.vercel.app). Per provarlo in locale servono Node.js 20.19+ o 22.12+: `npm install` e poi `npm run dev`. Le opere si gestiscono con Sanity Studio nella cartella `studio/` (vedi [Managing artworks](#managing-artworks)). Il codice è distribuito con licenza MIT.
