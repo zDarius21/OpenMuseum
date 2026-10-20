@@ -1,3 +1,4 @@
+import gsap from 'gsap';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -35,9 +36,32 @@ const ROPE_RADIUS = 0.018;
 const ROPE_DROP = 0.08;
 /** Spessore dei volumi di collisione attorno alla linea dei paletti. */
 const COLLIDER_THICKNESS = 0.1;
+/** Durata in secondi della dissolvenza con cui le transenne spariscono e ricompaiono. */
+const FADE_DURATION = 0.4;
 
 /** Materiali e forma del paletto, uguali in tutte le sale: si creano una volta sola. */
 let shared: { brass: THREE.Material; velvet: THREE.Material; post: THREE.BufferGeometry; postHeight: number } | null = null;
+/** Opacità delle transenne di tutte le sale, che condividono i materiali. */
+const fade = { opacity: 1 };
+let fadeTween: gsap.core.Tween | null = null;
+
+/**
+ * Fa sparire o ricomparire con una dissolvenza le transenne di tutte le sale. Durante le visite guidate e le viste
+ * ravvicinate la camera inquadra i quadri grandi da dietro il cordone, che ne coprirebbe la parte bassa.
+ */
+export function setBarriersVisible(visible: boolean): void {
+  fadeTween?.kill();
+  fadeTween = gsap.to(fade, { opacity: visible ? 1 : 0, duration: FADE_DURATION, ease: 'power1.inOut', onUpdate: applyFade });
+}
+
+function applyFade(): void {
+  if (!shared) return;
+  for (const material of [shared.brass, shared.velvet]) {
+    material.opacity = fade.opacity;
+    // Del tutto trasparenti non si disegnano proprio.
+    material.visible = fade.opacity > 0;
+  }
+}
 
 /**
  * Transenne da museo, paletti in ottone e cordoni di velluto, lungo una o più linee spezzate aperte
@@ -79,18 +103,22 @@ export function createBarriers(lines: readonly (readonly FloorPoint[])[], config
   }
 
   if (!shared || shared.postHeight !== config.postHeight) {
+    // alphaHash: la dissolvenza scarta a caso una parte dei pixel invece di mescolare i colori. Così i materiali
+    // non diventano trasparenti, che vorrebbe dire ricompilare gli shader all'inizio di ogni visita.
     shared = {
-      brass: new THREE.MeshStandardMaterial({ color: BRASS_COLOR, metalness: 1, roughness: 0.3, envMap: reflections }),
+      brass: new THREE.MeshStandardMaterial({ color: BRASS_COLOR, metalness: 1, roughness: 0.3, envMap: reflections, alphaHash: true }),
       velvet: new THREE.MeshPhysicalMaterial({
         color: VELVET_COLOR,
         roughness: 0.8,
         sheen: 1,
         sheenColor: VELVET_SHEEN_COLOR,
         sheenRoughness: 0.5,
+        alphaHash: true,
       }),
       post: createPostGeometry(config.postHeight, ropeHeight),
       postHeight: config.postHeight,
     };
+    applyFade();
   }
 
   // Tutti i paletti in un'unica InstancedMesh e tutti i cordoni in un'unica geometria: due sole chiamate di disegno.

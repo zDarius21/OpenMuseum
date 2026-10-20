@@ -6,6 +6,7 @@ import { isNearArtwork } from '../artworks/proximity';
 import type { PlayerControls } from '../controls/PlayerControls';
 import { language } from '../i18n/language';
 import { t } from '../i18n/strings';
+import { setBarriersVisible } from '../scene/Barriers';
 import { tweenCamera } from '../scene/cameraTween';
 import type { Museum } from '../scene/Museum';
 import type { Toast } from '../ui/Toast';
@@ -124,6 +125,7 @@ export class GuidedTour {
     // Il mouse serve libero per usare i pulsanti.
     this.controls.unlock();
     this.museum.renderer.domElement.style.cursor = '';
+    setBarriersVisible(false);
 
     const camera = this.museum.camera;
     this.active = {
@@ -178,6 +180,8 @@ export class GuidedTour {
     this.controls.resume(byEscape);
     this.animateCamera(tour.returnPosition, tour.returnQuaternion, this.options.approachDuration, () => {
       this.controls.enabled = true;
+      // Solo ora: tornando indietro la camera attraversa la linea del cordone.
+      setBarriersVisible(true);
     });
   }
 

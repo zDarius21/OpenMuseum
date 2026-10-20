@@ -5,6 +5,7 @@ import { artworkOf } from '../artworks/pickArtwork';
 import { isNearArtwork } from '../artworks/proximity';
 import type { PlayerControls } from '../controls/PlayerControls';
 import { t } from '../i18n/strings';
+import { setBarriersVisible } from '../scene/Barriers';
 import { tweenCamera } from '../scene/cameraTween';
 import type { Museum } from '../scene/Museum';
 import type { Toast } from '../ui/Toast';
@@ -156,6 +157,7 @@ export class ArtworkViewer {
     this.panel.show(this.controls.isTouchMode);
     this.panel.setInfoVisible(true);
     this.canvas.style.cursor = 'grab';
+    setBarriersVisible(false);
 
     const { position, quaternion } = this.poseFor(this.goal, this.framing());
     this.cameraTween?.kill();
@@ -179,6 +181,7 @@ export class ArtworkViewer {
     this.cameraTween?.kill();
     this.cameraTween = tweenCamera(this.museum.camera, viewing.returnPosition, viewing.returnQuaternion, this.options.approachDuration, () => {
       this.controls.enabled = true;
+      setBarriersVisible(true);
     });
   }
 
